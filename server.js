@@ -4,7 +4,6 @@ dotenv.config();
 
 const PORT = process.env.PORT || 3000;
 
-
 const start = async () => {
     try {
         app.listen(PORT, () => {
