@@ -1,0 +1,29 @@
+{
+  "name": "backend-vyapar-sathi",
+  "version": "1.0.0",
+  "description": "Store-Wise Multi-Store Inventory Management System",
+  "homepage": "https://github.com/Satyam8589/Backend-Vyapar-Sathi#readme",
+  "bugs": {
+    "url": "https://github.com/Satyam8589/Backend-Vyapar-Sathi/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Satyam8589/Backend-Vyapar-Sathi.git"
+  },
+  "license": "ISC",
+  "author": "",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.2.4",
+    "express": "^5.2.1",
+    "nodemon": "^3.1.11",
+    "router": "^2.2.0"
+  }
+}
