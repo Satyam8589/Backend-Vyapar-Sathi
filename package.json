@@ -11,7 +11,7 @@
     "url": "git+https://github.com/Satyam8589/Backend-Vyapar-Sathi.git"
   },
   "license": "ISC",
-  "author": "",
+  "author": "Satyam Kumar Singh, Sunil Kumar Sahu, Udit Kumar Tiwari, Ankit Kumar",
   "type": "module",
   "main": "server.js",
   "scripts": {
@@ -24,6 +24,7 @@
     "dotenv": "^17.2.4",
     "express": "^5.2.1",
     "firebase-admin": "^13.6.1",
+    "i": "^0.3.7",
     "mongoose": "^9.1.6",
     "nodemon": "^3.1.11",
     "router": "^2.2.0"

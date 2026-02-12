@@ -12,10 +12,17 @@ connectDB();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use(cors({
+app.use(
+  cors({
     origin: "*",
-    credentials: true
-}));
+    credentials: true,
+  }),
+);
+
+app.get("/", (req, res) => {
+  res.send("Welcome to Vyapar Sathi API");
+});
+
 
 app.use("/api", router);
 
