@@ -108,10 +108,11 @@ storeSchema.virtual('inventoryCount', {
     count: true
 });
 
-storeSchema.pre('save', function(next) {
+
+storeSchema.pre('save', async function() {
     this.updatedAt = Date.now();
-    next();
 });
+
 storeSchema.methods.isOwnedBy = function(userId) {
     return this.owner.toString() === userId.toString();
 };
