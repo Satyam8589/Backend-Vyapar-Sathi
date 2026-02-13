@@ -10,65 +10,35 @@ const productSchema = new mongoose.Schema({
     
     barcode: {
         type: String,
-        unique: true,
         sparse: true,
         trim: true,
         index: true
-    },
-    
-    sku: {
-        type: String,
-        unique: true,
-        sparse: true,
-        trim: true,
-        uppercase: true,
-        index: true
-    },
-    
-    description: {
-        type: String,
-        trim: true
     },
     
     category: {
         type: String,
         required: [true, 'Product category is required'],
-        trim: true,
-        index: true
-    },
-    
-    brand: {
-        type: String,
         trim: true
     },
     
-    unit: {
-        type: String,
-        enum: ['piece', 'kg', 'gram', 'liter', 'ml', 'box', 'pack', 'dozen'],
-        default: 'piece'
+    price: {
+        type: Number,
+        required: [true, 'Price is required'],
+        min: [0, 'Price cannot be negative']
     },
     
-    basePrice: {
+    quantity: {
         type: Number,
-        required: [true, 'Base price is required'],
-        min: [0, 'Base price cannot be negative']
-    },
-    
-    mrp: {
-        type: Number,
-        min: [0, 'MRP cannot be negative']
-    },
-    
-    gstRate: {
-        type: Number,
-        min: [0, 'GST rate cannot be negative'],
-        max: [100, 'GST rate cannot exceed 100%'],
+        required: [true, 'Quantity is required'],
+        min: [0, 'Quantity cannot be negative'],
         default: 0
     },
     
-    hsnCode: {
-        type: String,
-        trim: true
+    store: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Store',
+        required: [true, 'Store reference is required'],
+        index: true
     },
     
     isActive: {
@@ -86,9 +56,10 @@ const productSchema = new mongoose.Schema({
     timestamps: true
 });
 
-productSchema.index({ name: 'text', description: 'text' });
-productSchema.index({ category: 1 });
-productSchema.index({ createdBy: 1, isActive: 1 });
+productSchema.index({ name: 'text' });
+productSchema.index({ store: 1, barcode: 1 });
+productSchema.index({ store: 1, isActive: 1 });
+productSchema.index({ store: 1, category: 1 });
 
 const Product = mongoose.model("Product", productSchema);
 
