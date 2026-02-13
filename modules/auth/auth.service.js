@@ -1,9 +1,9 @@
 import User from '../user/user.model.js';
 
+// Register a new user
 export const register = async ({ uid, email, name, emailVerified, picture }) => {
     try {
         const existingUser = await User.findOne({ firebaseUid: uid });
-
         if (existingUser) {
             throw new Error('User already exists');
         }
@@ -17,18 +17,17 @@ export const register = async ({ uid, email, name, emailVerified, picture }) => 
         });
 
         return user;
-
     } catch (error) {
-        throw new Error(`Failed to register user: ${error.message}`);
+        throw error;
     }
 }
 
+// Login an existing user (updates their profile data)
 export const login = async ({ uid, email, name, emailVerified, picture }) => {
     try {
-        let user = await User.findOne({ firebaseUid: uid });
-
+        const user = await User.findOne({ firebaseUid: uid });
         if (!user) {
-            throw new Error('User not found. Please register first.');
+            throw new Error('User not found');
         }
 
         user.emailVerified = emailVerified || user.emailVerified;
@@ -37,7 +36,6 @@ export const login = async ({ uid, email, name, emailVerified, picture }) => {
         await user.save();
 
         return user;
-
     } catch (error) {
         throw error;
     }

@@ -4,8 +4,8 @@ import { ApiError } from "../../utils/ApiError.js";
 //create store service
 export const createStore = async (storeData) => {
     try {
-        if (!storeData.name || !storeData.owner || !storeData.ownerFirebaseUid) {
-            throw new ApiError("Name, owner, and ownerFirebaseUid are required", 400);
+        if (!storeData.name || !storeData.owner) {
+            throw new ApiError("Store name and owner ID are required", 400);
         }
 
         if (!storeData.address?.fullAddress) {
@@ -72,6 +72,15 @@ export const deleteStore = async (storeId) => {
         store.isActive = false;
         await store.save();
         return store;
+    } catch (error) {
+        throw error;
+    }
+};
+//get all stores for an owner service
+export const getStoresByOwner = async (ownerId) => {
+    try {
+        const stores = await Store.find({ owner: ownerId, isActive: true });
+        return stores;
     } catch (error) {
         throw error;
     }

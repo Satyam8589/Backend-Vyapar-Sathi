@@ -1,29 +1,27 @@
-import { createStore } from "./store.service.js";
+import { createStore, getStore, updateStore, deleteStore, getStoresByOwner } from "./store.service.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
-import { getStore } from "./store.service.js";
-import { updateStore } from "./store.service.js";
-import { deleteStore } from "./store.service.js";
-import User from "../user/user.model.js";
 
 //create store controller
 export const storeCreateController = async (req, res) => {
     try {
-        
-        const user = await User.findOne({ firebaseUid: req.user.uid });
-        
-        if (!user) {
-            return res.status(404).json(new ApiResponse(null, "User not found. Please register first.", 404));
-        }
-
         const storeData = {
             ...req.body,
-            owner: user._id,
-            ownerFirebaseUid: user.firebaseUid
+            owner: req.user._id,
+            ownerFirebaseUid: req.user.firebaseUid
         };
 
         const store = await createStore(storeData);
-        
         res.status(201).json(new ApiResponse(store, "Store created successfully", 201));
+    } catch (error) {
+        res.status(error.statusCode || 500).json(new ApiResponse(null, error.message, error.statusCode || 500));
+    }
+};
+
+//get all user stores controller
+export const storeGetAllController = async (req, res) => {
+    try {
+        const stores = await getStoresByOwner(req.user._id);
+        res.status(200).json(new ApiResponse(stores, "Stores fetched successfully", 200));
     } catch (error) {
         res.status(error.statusCode || 500).json(new ApiResponse(null, error.message, error.statusCode || 500));
     }

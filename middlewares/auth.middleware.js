@@ -1,5 +1,5 @@
 import { auth } from '../config/firebase.js';
-import User from '../modules/user/user.model.js';
+import * as authService from '../modules/auth/auth.service.js';
 
 const authMiddleware = async (req, res, next) => {
     try {
@@ -23,23 +23,30 @@ const authMiddleware = async (req, res, next) => {
 
         const decodedToken = await auth.verifyIdToken(token);
 
-        let user = await User.findOne({ firebaseUid: decodedToken.uid });
+        // Store Firebase info separately
+        req.firebaseUser = {
+            uid: decodedToken.uid,
+            email: decodedToken.email,
+            name: decodedToken.name,
+            emailVerified: decodedToken.email_verified,
+            picture: decodedToken.picture
+        };
 
-        if (!user) {
-            user = await User.create({
-                firebaseUid: decodedToken.uid,
-                email: decodedToken.email,
-                name: decodedToken.name || 'User',
-                emailVerified: decodedToken.email_verified || false,
-                profilePicture: decodedToken.picture || null
-            });
+        // Try to find user in database
+        let user = null;
+        try {
+            user = await authService.getUserByFirebaseUid(decodedToken.uid);
+        } catch (e) {
+            // User not found in DB, this is fine for register route
+            user = null;
         }
-
+        
+        // This will be null if user hasn't registered yet
         req.user = user;
+        
         next();
 
     } catch (error) {
-        console.error('Auth Middleware Error:', error.message);
 
         if (error.code === 'auth/id-token-expired') {
             return res.status(401).json({ 

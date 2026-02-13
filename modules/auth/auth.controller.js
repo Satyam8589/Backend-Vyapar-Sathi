@@ -3,15 +3,7 @@ import * as authService from './auth.service.js';
 
 export const register = async (req, res) => {
     try {
-        const { uid, email, name, emailVerified, picture } = req.user;
-
-        const user = await authService.register({
-            uid,
-            email,
-            name,
-            emailVerified,
-            picture
-        });
+        const user = await authService.register(req.firebaseUser);
 
         return res.status(201).json({
             success: true,
@@ -20,7 +12,6 @@ export const register = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Register Error:', error);
 
         if (error.message.includes('already exists')) {
             return res.status(409).json({
@@ -39,15 +30,7 @@ export const register = async (req, res) => {
 
 export const login = async (req, res) => {
     try {
-        const { uid, email, name, emailVerified, picture } = req.user;
-
-        const user = await authService.login({
-            uid,
-            email,
-            name,
-            emailVerified,
-            picture
-        });
+        const user = await authService.login(req.firebaseUser);
 
         return res.status(200).json({
             success: true,
@@ -56,7 +39,6 @@ export const login = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Login Error:', error);
 
         if (error.message.includes('not found')) {
             return res.status(404).json({
@@ -83,7 +65,6 @@ export const getUserProfile = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Get Profile Error:', error);
         
         if (error.message === 'User not found') {
             return res.status(404).json({
