@@ -4,6 +4,13 @@ import { ApiResponse } from "../../utils/ApiResponse.js";
 //create store controller
 export const storeCreateController = async (req, res) => {
     try {
+        // Additional safety check (though requireUser middleware should handle this)
+        if (!req.user || !req.user._id) {
+            return res.status(403).json(
+                new ApiResponse(null, "User not found. Please complete registration first.", 403)
+            );
+        }
+
         const storeData = {
             ...req.body,
             owner: req.user._id,
@@ -20,6 +27,12 @@ export const storeCreateController = async (req, res) => {
 //get all user stores controller
 export const storeGetAllController = async (req, res) => {
     try {
+        if (!req.user || !req.user._id) {
+            return res.status(403).json(
+                new ApiResponse(null, "User not found. Please complete registration first.", 403)
+            );
+        }
+
         const stores = await getStoresByOwner(req.user._id);
         res.status(200).json(new ApiResponse(stores, "Stores fetched successfully", 200));
     } catch (error) {
