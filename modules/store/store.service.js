@@ -76,10 +76,69 @@ export const deleteStore = async (storeId) => {
         throw error;
     }
 };
+import Product from "./models/product.model.js";
+import mongoose from "mongoose";
+
 //get all stores for an owner service
 export const getStoresByOwner = async (ownerId) => {
     try {
-        const stores = await Store.find({ owner: ownerId, isActive: true });
+        const stores = await Store.aggregate([
+            { 
+                $match: { 
+                    owner: new mongoose.Types.ObjectId(ownerId), 
+                    isActive: true 
+                } 
+            },
+            {
+                $lookup: {
+                    from: 'products',
+                    localField: '_id',
+                    foreignField: 'store',
+                    as: 'products'
+                }
+            },
+            {
+                $addFields: {
+                    totalProducts: { 
+                        $size: {
+                            $filter: {
+                                input: "$products",
+                                as: "p",
+                                cond: { $eq: ["$$p.isActive", true] }
+                            }
+                        }
+                    },
+                    totalInventoryValue: {
+                        $reduce: {
+                            input: {
+                                $filter: {
+                                    input: "$products",
+                                    as: "p",
+                                    cond: { $eq: ["$$p.isActive", true] }
+                                }
+                            },
+                            initialValue: 0,
+                            in: { 
+                                $add: [
+                                    "$$value", 
+                                    { 
+                                        $multiply: [
+                                            "$$this.price", 
+                                            { $ifNull: ["$$this.quantity", 0] }
+                                        ] 
+                                    } 
+                                ] 
+                            }
+                        }
+                    }
+                }
+            },
+            {
+                $project: {
+                    products: 0
+                }
+            }
+        ]);
         return stores;
     } catch (error) {
         throw error;
