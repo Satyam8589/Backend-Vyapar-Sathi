@@ -4,7 +4,7 @@ const mockFindOne = jest.fn();
 const mockCreate = jest.fn();
 
 jest.unstable_mockModule("../../../../models", () => ({
-  default: {
+  Store: {
     findOne: mockFindOne,
     create: mockCreate,
   },
