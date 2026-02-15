@@ -1,4 +1,4 @@
-import User from "./user.model.js";
+import User from '../../models/index.js';
 import { ApiError } from "../../utils/ApiError.js";
 
 export const getUserById = async (userId) => {

@@ -1,5 +1,5 @@
-import Cart from "./cart.model.js";
-import Product from "../store/models/product.model.js";
+import Cart from '../../models/index.js';
+import Product from '../../models/index.js';
 import { ApiError } from "../../utils/ApiError.js";
 
 export const createCart = async (cartData) => {
