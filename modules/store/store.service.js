@@ -1,4 +1,4 @@
-import Store from "./models/store.model.js";
+import Store from '../../models/index.js';
 import { ApiError } from "../../utils/ApiError.js";
 
 //create store service
