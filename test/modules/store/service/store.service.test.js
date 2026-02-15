@@ -3,7 +3,7 @@ import { jest } from "@jest/globals";
 const mockFindOne = jest.fn();
 const mockCreate = jest.fn();
 
-jest.unstable_mockModule("../../../../modules/store/models/store.model.js", () => ({
+jest.unstable_mockModule("../../../../models", () => ({
   default: {
     findOne: mockFindOne,
     create: mockCreate,

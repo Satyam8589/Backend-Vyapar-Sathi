@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
-import Store from "../../../../modules/store/models/store.model.js";
+import { Store } from "../../../../models";
+
 
 describe("Store model", () => {
   test("rejects invalid 10-digit phone numbers", () => {
