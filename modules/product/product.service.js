@@ -1,4 +1,4 @@
-import Product from '../../models/index.js';
+import { Product } from '../../models/index.js';
 import { ApiError } from "../../utils/ApiError.js";
 
 //create product service
