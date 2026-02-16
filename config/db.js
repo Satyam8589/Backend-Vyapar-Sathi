@@ -14,7 +14,6 @@ const connectDB = async () => {
             const indexes = await collection.indexes();
             if (indexes.some(i => i.name === 'barcode_1')) {
                 await collection.dropIndex('barcode_1');
-                console.log("Legacy index dropped successfully.");
             }
         } catch (idxError) {
             console.log("Note: Could not drop legacy index (it may not exist or is already being handled).");
