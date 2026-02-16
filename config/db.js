@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import dotenv from "dotenv";
+import { getSystemErrorMessage } from "util";
 dotenv.config();
 
 const connectDB = async () => {
@@ -12,7 +13,6 @@ const connectDB = async () => {
             const collection = mongoose.connection.collection('products');
             const indexes = await collection.indexes();
             if (indexes.some(i => i.name === 'barcode_1')) {
-                console.log("Dropping legacy 'barcode_1' index...");
                 await collection.dropIndex('barcode_1');
                 console.log("Legacy index dropped successfully.");
             }
