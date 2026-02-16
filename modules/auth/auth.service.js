@@ -1,4 +1,4 @@
-import User from '../user/user.model.js';
+import { User } from '../../models/index.js';
 
 // Register a new user
 export const register = async ({ uid, email, name, emailVerified, picture }) => {
