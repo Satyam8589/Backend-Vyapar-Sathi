@@ -12,4 +12,5 @@ export default {
   ],
   clearMocks: true,
   verbose: true,
+  transform: {},
 };
