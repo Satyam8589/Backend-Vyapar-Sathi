@@ -16,6 +16,30 @@ export const addProduct = async (productData) => {
             throw new ApiError("CreatedBy (user) reference is required", 400);
         }
 
+        // Check for duplicate name in the same store
+        const existingByName = await Product.findOne({
+            store: productData.store,
+            name: { $regex: new RegExp(`^${productData.name}$`, 'i') },
+            isActive: true
+        });
+
+        if (existingByName) {
+            throw new ApiError(`A product with the name "${productData.name}" already exists in this store.`, 409);
+        }
+
+        // Check for duplicate barcode in the same store (only if barcode is provided)
+        if (productData.barcode && productData.barcode.trim() !== "") {
+            const existingByBarcode = await Product.findOne({
+                store: productData.store,
+                barcode: productData.barcode,
+                isActive: true
+            });
+
+            if (existingByBarcode) {
+                throw new ApiError(`A product with barcode "${productData.barcode}" already exists in this store (Product: ${existingByBarcode.name}).`, 409);
+            }
+        }
+
         const product = await Product.create(productData);
         return product;
     } catch (error) {
@@ -69,7 +93,10 @@ export const deleteProductById = async (productId) => {
 //get all products service
 export const getAllProducts = async (storeId) => {
     try {
-        const query = storeId ? { store: storeId, isActive: true } : { isActive: true };
+        if (!storeId) {
+            throw new ApiError("Store ID is required to fetch products", 400);
+        }
+        const query = { store: storeId, isActive: true };
         const products = await Product.find(query).populate('store', 'name').populate('createdBy', 'name email');
         return products;
     } catch (error) {
@@ -83,12 +110,11 @@ export const getProductByBarcode = async (barcode, storeId) => {
         if (!barcode) {
             throw new ApiError("Barcode is required", 400);
         }
-
-        const query = { barcode, isActive: true };
-        if (storeId) {
-            query.store = storeId;
+        if (!storeId) {
+            throw new ApiError("Store ID is required for barcode lookup", 400);
         }
 
+        const query = { barcode, store: storeId, isActive: true };
         const product = await Product.findOne(query).populate('store', 'name');
         return product;
     } catch (error) {
