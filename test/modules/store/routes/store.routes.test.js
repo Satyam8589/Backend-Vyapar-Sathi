@@ -19,20 +19,20 @@ const mockRequireUser = jest.fn((_req, _res, next) => {
   next();
 });
 
-jest.unstable_mockModule("../../../../modules/store/store.controller.js", () => ({
-  storeCreateController: mockStoreCreateController,
-  storeGetController: jest.fn(),
-  storeUpdateController: jest.fn(),
-  storeDeleteController: jest.fn(),
-  storeGetAllController: jest.fn(),
-}));
-
 jest.unstable_mockModule(
-  "../../../../middlewares/auth.middleware.js",
+  "../../../../modules/store/store.controller.js",
   () => ({
-    default: mockAuthMiddleware,
+    storeCreateController: mockStoreCreateController,
+    storeGetController: jest.fn(),
+    storeUpdateController: jest.fn(),
+    storeDeleteController: jest.fn(),
+    storeGetAllController: jest.fn(),
   }),
 );
+
+jest.unstable_mockModule("../../../../middlewares/auth.middleware.js", () => ({
+  default: mockAuthMiddleware,
+}));
 
 jest.unstable_mockModule(
   "../../../../middlewares/requireUser.middleware.js",
@@ -41,9 +41,8 @@ jest.unstable_mockModule(
   }),
 );
 
-const { default: storeRouter } = await import(
-  "../../../../modules/store/store.routes.js"
-);
+const { default: storeRouter } =
+  await import("../../../../modules/store/store.routes.js");
 
 describe("store.routes POST /create", () => {
   beforeEach(() => {
@@ -72,6 +71,32 @@ describe("store.routes POST /create", () => {
       body: payload,
     });
 
+    expect(mockAuthMiddleware).toHaveBeenCalledTimes(1);
+    expect(mockRequireUser).toHaveBeenCalledTimes(1);
+    expect(mockStoreCreateController).toHaveBeenCalledTimes(1);
+  });
+
+  test("handles request with invalid/malformed JSON body", async () => {
+    const app = express();
+    app.use(express.json());
+    app.use("/stores", storeRouter);
+
+    const response = await request(app)
+      .post("/stores/create")
+      .set("Content-Type", "application/json")
+      .send("invalid json");
+
+    expect(response.status).toBe(400);
+  });
+
+  test("middleware chain is called even with empty body", async () => {
+    const app = express();
+    app.use(express.json());
+    app.use("/stores", storeRouter);
+
+    const response = await request(app).post("/stores/create").send({});
+
+    expect(response.status).toBe(201);
     expect(mockAuthMiddleware).toHaveBeenCalledTimes(1);
     expect(mockRequireUser).toHaveBeenCalledTimes(1);
     expect(mockStoreCreateController).toHaveBeenCalledTimes(1);
