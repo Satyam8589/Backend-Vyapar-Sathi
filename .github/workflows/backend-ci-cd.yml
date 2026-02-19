@@ -41,6 +41,7 @@ jobs:
         if: failure()
         run: |
           aws sns publish \
+            --region ${{ secrets.AWS_REGION }} \
             --topic-arn "${{ secrets.SNS_TOPIC_ARN }}" \
             --message "TEST FAILED: $GITHUB_REPOSITORY | branch $GITHUB_REF_NAME | commit $GITHUB_SHA"
 
@@ -109,6 +110,7 @@ jobs:
         if: success()
         run: |
           aws sns publish \
+            --region ${{ secrets.AWS_REGION }} \
             --topic-arn "${{ secrets.SNS_TOPIC_ARN }}" \
             --message "DEPLOY SUCCESS: $GITHUB_REPOSITORY | branch $GITHUB_REF_NAME | commit $GITHUB_SHA"
 
@@ -117,5 +119,6 @@ jobs:
         if: failure()
         run: |
           aws sns publish \
+            --region ${{ secrets.AWS_REGION }} \
             --topic-arn "${{ secrets.SNS_TOPIC_ARN }}" \
             --message "DEPLOY FAILED: $GITHUB_REPOSITORY | branch $GITHUB_REF_NAME | commit $GITHUB_SHA"
