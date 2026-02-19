@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import mongoose from "mongoose";
 import router from "./router/index.js";
 import connectDB from "./config/db.js";
 import path from "path";
@@ -41,6 +42,32 @@ app.use(express.static(path.join(__dirname, "public")));
 
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+app.get("/health", async (req, res) => {
+  try {
+    // basic process health
+    const uptime = process.uptime();
+
+    // DB ping (very important)
+    const dbState = mongoose.connection.readyState === 1;
+
+    if (!dbState) {
+      return res.status(500).json({
+        status: "unhealthy",
+        db: "disconnected",
+      });
+    }
+
+    res.status(200).json({
+      status: "healthy",
+      uptime,
+      timestamp: Date.now(),
+    });
+
+  } catch (err) {
+    res.status(500).json({ status: "error", error: err.message });
+  }
 });
 
 app.use("/api", router);

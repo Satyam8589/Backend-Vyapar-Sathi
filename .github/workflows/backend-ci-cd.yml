@@ -76,5 +76,9 @@ jobs:
               --name inventory-app \
               -p 127.0.0.1:5000:5000 \
               --restart unless-stopped \
+              --memory="700m" \
+              --cpus="0.8" \
+              --log-opt max-size=10m \
+              --log-opt max-file=3 \
               --env-file ~/app/.env \
               ${{ secrets.DOCKER_USERNAME }}/inventory-backend:${{ env.TAG }}
