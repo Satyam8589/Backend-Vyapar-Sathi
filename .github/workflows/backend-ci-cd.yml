@@ -64,6 +64,12 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
+      - name: Debug ARN
+        run: |
+          echo "Region: ${{ secrets.AWS_REGION }}"
+          echo "Length of ARN:"
+          echo -n "${{ secrets.SNS_TOPIC_ARN }}" | wc -c
+
       - name: Set Commit Tag
         run: echo "TAG=${GITHUB_SHA::7}" >> $GITHUB_ENV
 
