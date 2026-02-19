@@ -16,6 +16,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # --- Configure AWS once ---
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -33,13 +41,9 @@ jobs:
         if: failure()
         run: |
           aws sns publish \
-            --topic-arn "$SNS_TOPIC_ARN" \
-            --message "❌ TEST FAILED: $GITHUB_REPOSITORY | branch $GITHUB_REF_NAME | commit $GITHUB_SHA"
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ secrets.AWS_REGION }}
-          SNS_TOPIC_ARN: ${{ secrets.SNS_TOPIC_ARN }}
+            --topic-arn "${{ secrets.SNS_TOPIC_ARN }}" \
+            --message "TEST FAILED: $GITHUB_REPOSITORY | branch $GITHUB_REF_NAME | commit $GITHUB_SHA"
+
 
   deploy:
     name: Build and Deploy Backend
@@ -50,6 +54,14 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+
+      # --- Configure AWS once ---
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Set Commit Tag
         run: echo "TAG=${GITHUB_SHA::7}" >> $GITHUB_ENV
@@ -97,23 +109,13 @@ jobs:
         if: success()
         run: |
           aws sns publish \
-            --topic-arn "$SNS_TOPIC_ARN" \
-            --message "✅ DEPLOY SUCCESS: $GITHUB_REPOSITORY | branch $GITHUB_REF_NAME | commit $GITHUB_SHA"
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ secrets.AWS_REGION }}
-          SNS_TOPIC_ARN: ${{ secrets.SNS_TOPIC_ARN }}
+            --topic-arn "${{ secrets.SNS_TOPIC_ARN }}" \
+            --message "DEPLOY SUCCESS: $GITHUB_REPOSITORY | branch $GITHUB_REF_NAME | commit $GITHUB_SHA"
 
       # ---- Notify failure ----
       - name: Notify Deploy Failure
         if: failure()
         run: |
           aws sns publish \
-            --topic-arn "$SNS_TOPIC_ARN" \
-            --message "🔥 DEPLOY FAILED: $GITHUB_REPOSITORY | branch $GITHUB_REF_NAME | commit $GITHUB_SHA"
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ secrets.AWS_REGION }}
-          SNS_TOPIC_ARN: ${{ secrets.SNS_TOPIC_ARN }}
+            --topic-arn "${{ secrets.SNS_TOPIC_ARN }}" \
+            --message "DEPLOY FAILED: $GITHUB_REPOSITORY | branch $GITHUB_REF_NAME | commit $GITHUB_SHA"
