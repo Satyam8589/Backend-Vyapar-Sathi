@@ -7,6 +7,12 @@ const productSchema = new mongoose.Schema({
         trim: true,
         index: true
     },
+
+    brand: {
+        type: String,
+        trim: true,
+        default: null
+    },
     
     barcode: {
         type: String,
@@ -41,6 +47,25 @@ const productSchema = new mongoose.Schema({
 
     expDate: {
         type: Date
+    },
+
+    image: {
+        type: String,
+        trim: true,
+        default: null
+    },
+
+    source: {
+        type: String,
+        trim: true,
+        default: null
+    },
+
+    confidence: {
+        type: Number,
+        min: 0,
+        max: 1,
+        default: null
     },
     
     store: {
