@@ -10,7 +10,10 @@ const router = Router();
 router.use("/auth", authRoutes);
 router.use("/user", userRoutes);
 router.use("/store", storeRoutes);
+// /api/product  → store-scoped product management (authenticated)
+// /api/products → global barcode resolver (public + authenticated routes)
 router.use("/product", productRoutes);
+router.use("/products", productRoutes);
 router.use("/cart", cartRoutes);
 
 export default router;
