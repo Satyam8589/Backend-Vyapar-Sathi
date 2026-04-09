@@ -63,6 +63,16 @@ const mockGetProductByBarcodeController = jest.fn((req, res) => {
   });
 });
 
+const mockResolveProduct = jest.fn((req, res) => {
+  return res.status(200).json({
+    success: true,
+    data: {
+      barcode: req.params.barcode,
+      name: "Resolved Product",
+    },
+  });
+});
+
 const mockAuthMiddleware = jest.fn((req, _res, next) => {
   req.user = { _id: "507f1f77bcf86cd799439012", firebaseUid: "firebase-123" };
   next();
@@ -81,6 +91,7 @@ jest.unstable_mockModule(
     deleteProductController: mockDeleteProductController,
     getAllProductsController: mockGetAllProductsController,
     getProductByBarcodeController: mockGetProductByBarcodeController,
+    resolveProduct: mockResolveProduct,
   }),
 );
 

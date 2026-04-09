@@ -10,6 +10,10 @@ jest.unstable_mockModule("../../../../modules/store/store.service.js", () => ({
   getStoresByOwner: jest.fn(),
 }));
 
+jest.unstable_mockModule("../../../../modules/role/role.service.js", () => ({
+  seedSystemRoles: jest.fn().mockResolvedValue([]),
+}));
+
 const { storeCreateController } =
   await import("../../../../modules/store/store.controller.js");
 
@@ -60,7 +64,7 @@ describe("store.controller.storeCreateController", () => {
     expect(json).toHaveBeenCalledWith(
       expect.objectContaining({
         data: createdStore,
-        message: "Store created successfully",
+        message: "Store created successfully and system roles initialized",
         statusCode: 201,
       }),
     );

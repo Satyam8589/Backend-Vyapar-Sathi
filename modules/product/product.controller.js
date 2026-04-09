@@ -1,4 +1,5 @@
 import { addProduct, getProductById, updateProductById, deleteProductById, getAllProducts, getProductByBarcode } from "./product.service.js";
+import { resolveBarcode } from "./resolver.service.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 
 //create product controller
@@ -55,6 +56,33 @@ export const getAllProductsController = async (req, res) => {
         res.status(200).json(new ApiResponse(products, "Products fetched successfully", 200));
     } catch (error) {
         res.status(error.statusCode || 500).json(new ApiResponse(null, error.message, error.statusCode || 500));
+    }
+};
+
+// Resolve a product globally by barcode (public, no auth required)
+// GET /api/products/resolve/:barcode
+export const resolveProduct = async (req, res) => {
+    try {
+        const { barcode } = req.params;
+
+        const result = await resolveBarcode(barcode);
+
+        if (!result) {
+            return res.status(404).json({
+                success: false,
+                message: "Product not found for this barcode.",
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            data: result,
+        });
+    } catch (error) {
+        return res.status(400).json({
+            success: false,
+            message: error.message,
+        });
     }
 };
 
