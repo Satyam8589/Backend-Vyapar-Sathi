@@ -1,45 +1,65 @@
-import { Employee, User, Role } from "../../models/index.js";
+import { Employee, User, Role, Store } from "../../models/index.js";
 import { ApiError } from "../../utils/ApiError.js";
+import { sendInviteEmail } from "../../utils/mailer.js";
+import crypto from "crypto";
 
 /**
- * Invite an employee to a store
+ * Invite an employee to a store — generates a secure token and sends an email.
  */
 export const inviteEmployee = async (storeId, invitedByUserId, employeeData) => {
-  try {
-    const { email, roleId } = employeeData;
+  const { email, roleId } = employeeData;
 
-    if (!email || !roleId) {
-      throw new ApiError("Email and role are required", 400);
-    }
-
-    const userToInvite = await User.findOne({ email });
-    if (!userToInvite) {
-      throw new ApiError(`User with email '${email}' not found. They must register first.`, 404);
-    }
-
-    const existingEmployee = await Employee.findOne({ store: storeId, user: userToInvite._id });
-    if (existingEmployee) {
-      throw new ApiError("User is already an employee of this store", 409);
-    }
-    const role = await Role.findOne({ _id: roleId });
-    if (!role) {
-      throw new ApiError("Role not found", 404);
-    }
-    if (!role.isSystem && role.store.toString() !== storeId.toString()) {
-        throw new ApiError("Role does not belong to this store", 403);
-    }
-    const employee = await Employee.create({
-      store: storeId,
-      user: userToInvite._id,
-      role: roleId,
-      invitedBy: invitedByUserId,
-      status: "pending"
-    });
-
-    return employee;
-  } catch (error) {
-    throw error;
+  if (!email || !roleId) {
+    throw new ApiError("Email and role are required", 400);
   }
+
+  const userToInvite = await User.findOne({ email });
+  if (!userToInvite) {
+    throw new ApiError(`User with email '${email}' not found. They must register first.`, 404);
+  }
+
+  const existingEmployee = await Employee.findOne({ store: storeId, user: userToInvite._id });
+  if (existingEmployee) {
+    throw new ApiError("User is already an employee of this store", 409);
+  }
+
+  const role = await Role.findOne({ _id: roleId });
+  if (!role) {
+    throw new ApiError("Role not found", 404);
+  }
+  if (!role.isSystem && role.store.toString() !== storeId.toString()) {
+    throw new ApiError("Role does not belong to this store", 403);
+  }
+
+  // Generate a secure random token (valid for 48 hours)
+  const inviteToken = crypto.randomBytes(32).toString("hex");
+  const inviteTokenExpiry = new Date(Date.now() + 48 * 60 * 60 * 1000);
+
+  const employee = await Employee.create({
+    store: storeId,
+    user: userToInvite._id,
+    role: roleId,
+    invitedBy: invitedByUserId,
+    status: "pending",
+    inviteToken,
+    inviteTokenExpiry,
+  });
+
+  // Fetch store + inviter info for the email
+  const [store, inviter] = await Promise.all([
+    Store.findById(storeId).select("name"),
+    User.findById(invitedByUserId).select("name"),
+  ]);
+
+  // Send the invitation email (non-blocking — don't fail the whole request if email fails)
+  sendInviteEmail(email, {
+    storeName: store?.name || "the store",
+    roleName: role.name,
+    ownerName: inviter?.name || "The owner",
+    inviteToken,
+  }).catch((err) => console.error("Failed to send invite email:", err));
+
+  return employee;
 };
 
 /**

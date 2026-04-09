@@ -13,6 +13,7 @@ export const PERMISSIONS = {
   BILLING_APPLY_DISCOUNT: "billing:apply_discount",
   BILLING_CANCEL:         "billing:cancel_bill",
   BILLING_VIEW_HISTORY:   "billing:view_history",
+  
   BILLING_PRINT:          "billing:print_bill",
   BILLING_ACCEPT_UPI:     "billing:accept_upi",
   BILLING_ACCEPT_CASH:    "billing:accept_cash",
