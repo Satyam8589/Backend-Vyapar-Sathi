@@ -72,6 +72,17 @@ const storeSchema = new mongoose.Schema({
             type: String, 
             default: 'INR',
             enum: ['INR', 'USD', 'EUR', 'GBP']
+        },
+        // UPI Payment — store the UPI ID; QR is generated dynamically from it
+        upiId: {
+            type: String,
+            trim: true,
+            default: null
+        },
+        upiName: {
+            type: String,
+            trim: true,
+            default: null
         }
     },
     
