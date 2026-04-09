@@ -8,7 +8,7 @@ import MasterProduct from './masterProduct.model.js';
 import Role from './role.model.js';
 import Employee from './employee.model.js';
 
-export { Store, Product, Inventory, User, Cart, MasterProduct, Role, Employee };
+export { Store, Product, Inventory, User, Cart, Sale, MasterProduct, Role, Employee };
 
 export default {
     Store,
