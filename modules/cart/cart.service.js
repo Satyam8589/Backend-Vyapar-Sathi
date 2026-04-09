@@ -1,12 +1,16 @@
 import { Cart } from '../../models/index.js';
 import { Product } from '../../models/index.js';
 import { ApiError } from "../../utils/ApiError.js";
+import { assertCartAccess, assertStoreOwner } from "../store/storeAccess.service.js";
+import { materializeSaleFromCart } from "../sale/sale.service.js";
 
-export const createCart = async (cartData) => {
+export const createCart = async (cartData, userId) => {
     try {
         if (!cartData.user || !cartData.store) {
             throw new ApiError(400, "User and Store references are required");
         }
+
+        await assertStoreOwner(cartData.store, userId);
 
         let cart = await Cart.findOne({
             user: cartData.user,
@@ -28,7 +32,9 @@ export const createCart = async (cartData) => {
     }
 }
 
-export const startScanning = async (cartId) => {
+export const startScanning = async (cartId, userId) => {
+    await assertCartAccess(cartId, userId);
+
     const cart = await Cart.findByIdAndUpdate(
         cartId,
         { status: 'scanning' },
@@ -38,9 +44,8 @@ export const startScanning = async (cartId) => {
     return cart;
 };
 
-export const addItemToCart = async (cartId, productId, quantity = 1) => {
-    const cart = await Cart.findById(cartId);
-    if (!cart) throw new ApiError(404, "Cart not found");
+export const addItemToCart = async (cartId, productId, quantity = 1, userId) => {
+    const cart = await assertCartAccess(cartId, userId);
     if (cart.status !== 'scanning' && cart.status !== 'open') {
         throw new ApiError(400, "Cannot add items to cart in current status");
     }
@@ -68,9 +73,8 @@ export const addItemToCart = async (cartId, productId, quantity = 1) => {
     return cart;
 };
 
-export const processPayment = async (cartId, paymentId) => {
-    const cart = await Cart.findById(cartId);
-    if (!cart) throw new ApiError(404, "Cart not found");
+export const processPayment = async (cartId, paymentId, userId) => {
+    const cart = await assertCartAccess(cartId, userId);
 
     cart.paymentId = paymentId;
     cart.paymentStatus = 'paid';
@@ -80,30 +84,12 @@ export const processPayment = async (cartId, paymentId) => {
     return cart;
 };
 
-export const confirmPayment = async (cartId) => {
-    const cart = await Cart.findById(cartId);
-    if (!cart) throw new ApiError(404, "Cart not found");
-    
-    if (cart.paymentStatus !== 'paid') {
-        throw new ApiError(400, "Payment hasn't been made yet");
-    }
-
-    cart.status = 'completed';
-    await cart.save();
-    
-    // Here we should also update product inventory
-    for (const item of cart.products) {
-        await Product.findByIdAndUpdate(item.product, {
-            $inc: { quantity: -item.quantity }
-        });
-    }
-
-    return cart;
+export const confirmPayment = async (cartId, userId) => {
+    return materializeSaleFromCart(cartId, userId);
 };
 
-export const getProductByBarcodeInCart = async (cartId, barcode) => {
-    const cart = await Cart.findById(cartId);
-    if (!cart) throw new ApiError(404, "Cart not found");
+export const getProductByBarcodeInCart = async (cartId, barcode, userId) => {
+    const cart = await assertCartAccess(cartId, userId);
 
     const product = await Product.findOne({
         store: cart.store,

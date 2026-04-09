@@ -15,7 +15,7 @@ RUN apk add --no-cache curl
 
 # Copy rest of the code
 COPY . .
-
+ 
 # Expose backend port
 EXPOSE 5000
 
