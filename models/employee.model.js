@@ -47,6 +47,18 @@ const employeeSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+
+    // Secure token for email invite link (expires in 48 hours)
+    inviteToken: {
+      type: String,
+      default: null,
+      index: true,
+    },
+
+    inviteTokenExpiry: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
