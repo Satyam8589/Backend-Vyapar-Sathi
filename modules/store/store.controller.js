@@ -1,4 +1,5 @@
 import { createStore, getStore, updateStore, deleteStore, getStoresByOwner } from "./store.service.js";
+import { seedSystemRoles } from "../role/role.service.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 
 //create store controller
@@ -18,7 +19,11 @@ export const storeCreateController = async (req, res) => {
         };
 
         const store = await createStore(storeData);
-        res.status(201).json(new ApiResponse(store, "Store created successfully", 201));
+
+        // Auto-seed system roles for the new store
+        await seedSystemRoles(store._id, req.user._id);
+
+        res.status(201).json(new ApiResponse(store, "Store created successfully and system roles initialized", 201));
     } catch (error) {
         res.status(error.statusCode || 500).json(new ApiResponse(null, error.message, error.statusCode || 500));
     }
