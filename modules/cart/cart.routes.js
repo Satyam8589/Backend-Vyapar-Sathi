@@ -9,6 +9,7 @@ import {
   getBillHistoryController,
 } from "./cart.controller.js";
 import authMiddleware from "../../middlewares/auth.middleware.js";
+import requireUser from "../../middlewares/requireUser.middleware.js";
 
 const router = express.Router();
 

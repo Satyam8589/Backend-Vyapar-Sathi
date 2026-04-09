@@ -83,6 +83,16 @@ const storeSchema = new mongoose.Schema({
             type: String,
             trim: true,
             default: null
+        },
+        leadTimeDays: {
+            type: Number,
+            default: 3,
+            min: [1, 'Lead time days must be at least 1']
+        },
+        safetyStockUnits: {
+            type: Number,
+            default: 10,
+            min: [0, 'Safety stock cannot be negative']
         }
     },
     
