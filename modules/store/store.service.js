@@ -1,5 +1,7 @@
 import { Store } from "../../models/index.js";
 import { ApiError } from "../../utils/ApiError.js";
+import Product from "../../models/product.model.js";
+import mongoose from "mongoose";
 
 //create store service
 export const createStore = async (storeData) => {
@@ -85,8 +87,6 @@ export const deleteStore = async (storeId) => {
     throw error;
   }
 };
-import Product from "../../models/product.model.js";
-import mongoose from "mongoose";
 
 //get all stores for a user (Owned + Employee) service
 export const getUserStores = async (userId) => {
