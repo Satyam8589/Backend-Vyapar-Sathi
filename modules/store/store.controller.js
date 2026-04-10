@@ -1,4 +1,6 @@
-import { createStore, getStore, updateStore, deleteStore, getStoresByOwner } from "./store.service.js";
+import { createStore, getStore, updateStore, deleteStore, getUserStores } from "./store.service.js";
+import { Employee } from "../../models/index.js";
+import { ALL_PERMISSIONS } from "../../utils/permissions.js";
 import { seedSystemRoles } from "../role/role.service.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 
@@ -29,7 +31,7 @@ export const storeCreateController = async (req, res) => {
     }
 };
 
-//get all user stores controller
+//get all user stores controller (Owned + Invited)
 export const storeGetAllController = async (req, res) => {
     try {
         if (!req.user || !req.user._id) {
@@ -38,18 +40,47 @@ export const storeGetAllController = async (req, res) => {
             );
         }
 
-        const stores = await getStoresByOwner(req.user._id);
+        const stores = await getUserStores(req.user._id);
         res.status(200).json(new ApiResponse(stores, "Stores fetched successfully", 200));
     } catch (error) {
         res.status(error.statusCode || 500).json(new ApiResponse(null, error.message, error.statusCode || 500));
     }
 };
 
-//get store controller
+//get store controller — now includes user role and permissions context
 export const storeGetController = async (req, res) => {
     try {
-        const store = await getStore(req.params.storeId);
-        res.status(200).json(new ApiResponse(store, "Store fetched successfully", 200));
+        const { storeId } = req.params;
+        const userId = req.user._id;
+
+        const store = await getStore(storeId);
+        
+        let role = null;
+        let permissions = [];
+
+        // Determine user context for this store
+        if (store.owner.toString() === userId.toString()) {
+            role = "Owner";
+            permissions = ALL_PERMISSIONS; // Owner has full access
+        } else {
+            const employee = await Employee.findOne({ 
+                store: storeId, 
+                user: userId, 
+                status: "active" 
+            }).populate("role");
+
+            if (employee) {
+                role = employee.role?.name || "Employee";
+                permissions = employee.role?.permissions || [];
+            } else {
+                return res.status(403).json(new ApiResponse(null, "You do not have access to this store", 403));
+            }
+        }
+
+        res.status(200).json(new ApiResponse({ 
+            ...store.toObject(), 
+            userContext: { role, permissions } 
+        }, "Store fetched successfully", 200));
     } catch (error) {
         res.status(error.statusCode || 500).json(new ApiResponse(null, error.message, error.statusCode || 500));
     }

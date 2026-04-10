@@ -110,6 +110,10 @@ const storeSchema = new mongoose.Schema({
     logo: {
         type: String,
         trim: true
+    },
+    seqNumber: {
+        type: Number,
+        index: true
     }
 }, {
     timestamps: true,
