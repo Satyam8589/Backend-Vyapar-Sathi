@@ -5,7 +5,9 @@ import Employee from "../../models/employee.model.js";
 import Role from "../../models/role.model.js";
 import mongoose from "mongoose";
 
-//create store service
+/**
+ * Service to Create a new Store
+ */
 const createStore = async (storeData) => {
   try {
     if (!storeData.name || !storeData.owner) {
@@ -33,6 +35,7 @@ const createStore = async (storeData) => {
       );
     }
 
+    // Logic for permanent chronological shop number
     const totalStoreCountEver = await Store.countDocuments({ 
       owner: storeData.owner
     });
@@ -40,14 +43,15 @@ const createStore = async (storeData) => {
     storeData.seqNumber = totalStoreCountEver + 1;
 
     const store = await Store.create(storeData);
-
     return store;
   } catch (error) {
     throw error;
   }
 };
 
-//get store service
+/**
+ * Service to get a single Store by ID
+ */
 const getStore = async (storeId) => {
   try {
     const store = await Store.findById(storeId);
@@ -60,7 +64,9 @@ const getStore = async (storeId) => {
   }
 };
 
-//update store service
+/**
+ * Service to update Store details
+ */
 const updateStore = async (storeId, storeData) => {
   try {
     const store = await Store.findById(storeId);
@@ -75,7 +81,9 @@ const updateStore = async (storeId, storeData) => {
   }
 };
 
-//delete store service
+/**
+ * Service to soft-delete a Store
+ */
 const deleteStore = async (storeId) => {
   try {
     const store = await Store.findById(storeId);
@@ -90,7 +98,9 @@ const deleteStore = async (storeId) => {
   }
 };
 
-//get all stores for a user (Owned + Employee) service
+/**
+ * Service to get all stores for a user (Owned + Employee) with aggregated stats
+ */
 const getUserStores = async (userId) => {
   try {
     const userObjectId = new mongoose.Types.ObjectId(userId);
@@ -146,16 +156,16 @@ const getUserStores = async (userId) => {
             },
           },
           userRole: "Owner",
-          permissions: [], // Implicitly all permissions (handled by role check)
+          permissions: [], 
           isEmployee: false
         },
       },
-      { $sort: { createdAt: 1 } }, // Sort by age to assign numbers correctly
+      { $sort: { createdAt: 1 } }, 
       { $project: { products: 0 } },
     ]);
 
-    // Assign dynamic seqNumbers to owned stores if missing
-    for (const store of ownedStores) {
+    // Ensure seqNumbers are populated for older stores if missing (Parallelized)
+    await Promise.all(ownedStores.map(async (store) => {
       if (!store.seqNumber) {
         const rank = await Store.countDocuments({
           owner: store.owner,
@@ -163,7 +173,7 @@ const getUserStores = async (userId) => {
         });
         store.seqNumber = rank + 1;
       }
-    }
+    }));
 
     // 2. Get stores where user is an active employee
     const activeEmployeeRecords = await Employee.find({ 
@@ -232,13 +242,12 @@ const getUserStores = async (userId) => {
         { $project: { products: 0 } },
       ]);
 
-      // Attach roles, permissions and sync seqNumber for employees
+      // Attach roles, permissions and sync seqNumber for employee view
       const employeeStoresWithRanking = await Promise.all(employeeStores.map(async (store) => {
         const record = activeEmployeeRecords.find(r => r.store.toString() === store._id.toString());
         
         let displaySeq = store.seqNumber;
         
-        // If seqNumber is missing, calculate rank based on owner's stores (including inactive)
         if (!displaySeq) {
           const rank = await Store.countDocuments({
             owner: store.owner,
@@ -258,7 +267,7 @@ const getUserStores = async (userId) => {
       employeeStores = employeeStoresWithRanking;
     }
 
-    // Combine and deduplicate (Owned stores take precedence)
+    // Combine and deduplicate
     const allStores = [...ownedStores, ...employeeStores];
     const uniqueStores = Array.from(new Map(allStores.map(s => [s._id.toString(), s])).values());
 
@@ -268,10 +277,16 @@ const getUserStores = async (userId) => {
   }
 };
 
+/**
+ * Legacy Alias for backward compatibility with older tests
+ */
+const getStoresByOwner = getUserStores;
+
 export {
   createStore,
   getStore,
   updateStore,
   deleteStore,
-  getUserStores
+  getUserStores,
+  getStoresByOwner
 };
