@@ -6,6 +6,7 @@ import {
   getInsightsController,
   getProductInsightController,
   getRestockController,
+  getSummaryController,
 } from "./ai.controller.js";
 
 const router = Router();
@@ -16,6 +17,7 @@ router.use(requireUser);
 router.get("/:storeId/forecast", getForecastController);
 router.get("/:storeId/restock", getRestockController);
 router.get("/:storeId/insights", getInsightsController);
+router.get("/:storeId/summary", getSummaryController);
 router.get("/:storeId/product/:productId", getProductInsightController);
 
 export default router;

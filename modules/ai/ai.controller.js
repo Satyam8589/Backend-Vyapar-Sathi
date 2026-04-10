@@ -4,6 +4,7 @@ import {
   getStoreForecast,
   getStoreInsights,
   getStoreRestockPlan,
+  getStoreSummary,
 } from "./ai.service.js";
 
 export const getForecastController = async (req, res) => {
@@ -44,6 +45,21 @@ export const getInsightsController = async (req, res) => {
     res
       .status(200)
       .json(new ApiResponse(data, "Insights generated successfully", 200));
+  } catch (error) {
+    res
+      .status(error.statusCode || 500)
+      .json(new ApiResponse(null, error.message, error.statusCode || 500));
+  }
+};
+
+export const getSummaryController = async (req, res) => {
+  try {
+    console.log(`[AI CONTROLLER] GET /summary for store=${req.params.storeId}`);
+    const data = await getStoreSummary(req.params.storeId, req.user._id);
+    console.log(`[AI CONTROLLER] GET /summary completed`);
+    res
+      .status(200)
+      .json(new ApiResponse(data, "Store summary generated successfully", 200));
   } catch (error) {
     res
       .status(error.statusCode || 500)
