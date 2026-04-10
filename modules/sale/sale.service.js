@@ -1,4 +1,4 @@
-import { Cart, Product, Sale } from "../../models/index.js";
+import { Product, Sale } from "../../models/index.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { assertCartAccess } from "../store/storeAccess.service.js";
 
@@ -52,18 +52,33 @@ const decrementInventory = async (cart) => {
 };
 
 export const materializeSaleFromCart = async (cartId, userId) => {
+  if (!userId) {
+    throw new ApiError("User not registered. Please complete registration first.", 403);
+  }
+
+  const cart = await assertCartAccess(cartId, userId, "products.product");
+
   const existingSale = await Sale.findOne({ cart: cartId });
   if (existingSale) {
-    const existingCart = await Cart.findById(cartId);
+    console.log(
+      `[SALE SERVICE] Reusing existing sale snapshot for cart=${cartId} sale=${existingSale._id}`
+    );
+
+    if (cart.status !== "completed") {
+      cart.status = "completed";
+      await cart.save();
+      console.log(
+        `[SALE SERVICE] Cart ${cartId} marked completed while reusing existing sale snapshot`
+      );
+    }
+
     return {
       sale: existingSale,
-      cart: existingCart,
+      cart,
       inventoryAdjusted: false,
       saleCreated: false,
     };
   }
-
-  const cart = await assertCartAccess(cartId, userId, "products.product");
 
   if (!cart.products.length) {
     throw new ApiError("Cannot complete sale for an empty cart", 400);
@@ -71,7 +86,7 @@ export const materializeSaleFromCart = async (cartId, userId) => {
 
   const isBackfillForCompletedCart = cart.status === "completed";
 
-  if (!isBackfillForCompletedCart && cart.paymentStatus !== "paid") {
+  if (cart.paymentStatus !== "paid") {
     throw new ApiError("Payment has not been completed yet", 400);
   }
 
@@ -96,6 +111,10 @@ export const materializeSaleFromCart = async (cartId, userId) => {
     paymentId: cart.paymentId || null,
     completedAt: isBackfillForCompletedCart ? cart.updatedAt || new Date() : new Date(),
   });
+
+  console.log(
+    `[SALE SERVICE] Created sale snapshot for cart=${cartId} sale=${sale._id} mode=${isBackfillForCompletedCart ? "backfill" : "live"}`
+  );
 
   if (cart.status !== "completed") {
     cart.status = "completed";

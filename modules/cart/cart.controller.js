@@ -71,7 +71,7 @@ export const processPaymentController = async (req, res) => {
 export const confirmPaymentController = async (req, res) => {
   try {
     const { cartId } = req.params;
-    const cart = await confirmPayment(cartId);
+    const cart = await confirmPayment(cartId, req.user?._id);
     res
       .status(200)
       .json(
