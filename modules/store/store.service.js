@@ -6,7 +6,7 @@ import Role from "../../models/role.model.js";
 import mongoose from "mongoose";
 
 //create store service
-export const createStore = async (storeData) => {
+const createStore = async (storeData) => {
   try {
     if (!storeData.name || !storeData.owner) {
       throw new ApiError("Store name and owner ID are required", 400);
@@ -48,7 +48,7 @@ export const createStore = async (storeData) => {
 };
 
 //get store service
-export const getStore = async (storeId) => {
+const getStore = async (storeId) => {
   try {
     const store = await Store.findById(storeId);
     if (!store) {
@@ -61,7 +61,7 @@ export const getStore = async (storeId) => {
 };
 
 //update store service
-export const updateStore = async (storeId, storeData) => {
+const updateStore = async (storeId, storeData) => {
   try {
     const store = await Store.findById(storeId);
     if (!store) {
@@ -76,7 +76,7 @@ export const updateStore = async (storeId, storeData) => {
 };
 
 //delete store service
-export const deleteStore = async (storeId) => {
+const deleteStore = async (storeId) => {
   try {
     const store = await Store.findById(storeId);
     if (!store) {
@@ -91,7 +91,7 @@ export const deleteStore = async (storeId) => {
 };
 
 //get all stores for a user (Owned + Employee) service
-export const getUserStores = async (userId) => {
+const getUserStores = async (userId) => {
   try {
     const userObjectId = new mongoose.Types.ObjectId(userId);
 
@@ -266,4 +266,12 @@ export const getUserStores = async (userId) => {
   } catch (error) {
     throw error;
   }
+};
+
+export {
+  createStore,
+  getStore,
+  updateStore,
+  deleteStore,
+  getUserStores
 };

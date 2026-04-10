@@ -1,4 +1,5 @@
-import { createStore, getStore, updateStore, deleteStore, getUserStores } from "./store.service.js";
+import * as storeService from "./store.service.js";
+const { createStore, getStore, updateStore, deleteStore, getUserStores } = storeService;
 import { Employee } from "../../models/index.js";
 import { ALL_PERMISSIONS } from "../../utils/permissions.js";
 import { seedSystemRoles } from "../role/role.service.js";
