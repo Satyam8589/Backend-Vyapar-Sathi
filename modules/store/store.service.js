@@ -1,8 +1,14 @@
-import { Store } from "../../models/index.js";
+import Store from "../../models/store.model.js";
 import { ApiError } from "../../utils/ApiError.js";
+import Product from "../../models/product.model.js";
+import Employee from "../../models/employee.model.js";
+import Role from "../../models/role.model.js";
+import mongoose from "mongoose";
 
-//create store service
-export const createStore = async (storeData) => {
+/**
+ * Service to Create a new Store
+ */
+const createStore = async (storeData) => {
   try {
     if (!storeData.name || !storeData.owner) {
       throw new ApiError("Store name and owner ID are required", 400);
@@ -29,16 +35,24 @@ export const createStore = async (storeData) => {
       );
     }
 
-    const store = await Store.create(storeData);
+    // Logic for permanent chronological shop number
+    const totalStoreCountEver = await Store.countDocuments({ 
+      owner: storeData.owner
+    });
+    
+    storeData.seqNumber = totalStoreCountEver + 1;
 
+    const store = await Store.create(storeData);
     return store;
   } catch (error) {
     throw error;
   }
 };
 
-//get store service
-export const getStore = async (storeId) => {
+/**
+ * Service to get a single Store by ID
+ */
+const getStore = async (storeId) => {
   try {
     const store = await Store.findById(storeId);
     if (!store) {
@@ -50,8 +64,10 @@ export const getStore = async (storeId) => {
   }
 };
 
-//update store service
-export const updateStore = async (storeId, storeData) => {
+/**
+ * Service to update Store details
+ */
+const updateStore = async (storeId, storeData) => {
   try {
     const store = await Store.findById(storeId);
     if (!store) {
@@ -65,8 +81,10 @@ export const updateStore = async (storeId, storeData) => {
   }
 };
 
-//delete store service
-export const deleteStore = async (storeId) => {
+/**
+ * Service to soft-delete a Store
+ */
+const deleteStore = async (storeId) => {
   try {
     const store = await Store.findById(storeId);
     if (!store) {
@@ -79,16 +97,19 @@ export const deleteStore = async (storeId) => {
     throw error;
   }
 };
-import Product from "../../models/product.model.js";
-import mongoose from "mongoose";
 
-//get all stores for an owner service
-export const getStoresByOwner = async (ownerId) => {
+/**
+ * Service to get all stores for a user (Owned + Employee) with aggregated stats
+ */
+const getUserStores = async (userId) => {
   try {
-    const stores = await Store.aggregate([
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+
+    // 1. Get stores owned by the user
+    const ownedStores = await Store.aggregate([
       {
         $match: {
-          owner: new mongoose.Types.ObjectId(ownerId),
+          owner: userObjectId,
           isActive: true,
         },
       },
@@ -134,16 +155,138 @@ export const getStoresByOwner = async (ownerId) => {
               },
             },
           },
+          userRole: "Owner",
+          permissions: [], 
+          isEmployee: false
         },
       },
-      {
-        $project: {
-          products: 0,
-        },
-      },
+      { $sort: { createdAt: 1 } }, 
+      { $project: { products: 0 } },
     ]);
-    return stores;
+
+    // Ensure seqNumbers are populated for older stores if missing (Parallelized)
+    await Promise.all(ownedStores.map(async (store) => {
+      if (!store.seqNumber) {
+        const rank = await Store.countDocuments({
+          owner: store.owner,
+          createdAt: { $lt: store.createdAt }
+        });
+        store.seqNumber = rank + 1;
+      }
+    }));
+
+    // 2. Get stores where user is an active employee
+    const activeEmployeeRecords = await Employee.find({ 
+      user: userObjectId, 
+      status: "active" 
+    }).select("store role").populate("role");
+
+    const employeeStoreIds = activeEmployeeRecords
+      .map(r => r.store)
+      .filter(id => id);
+
+    let employeeStores = [];
+    if (employeeStoreIds.length > 0) {
+      employeeStores = await Store.aggregate([
+        {
+          $match: {
+            _id: { $in: employeeStoreIds },
+            isActive: true,
+          },
+        },
+        {
+          $lookup: {
+            from: "products",
+            localField: "_id",
+            foreignField: "store",
+            as: "products",
+          },
+        },
+        {
+          $addFields: {
+            totalProducts: {
+              $size: {
+                $filter: {
+                  input: "$products",
+                  as: "p",
+                  cond: { $eq: ["$$p.isActive", true] },
+                },
+              },
+            },
+            totalInventoryValue: {
+              $reduce: {
+                input: {
+                  $filter: {
+                    input: "$products",
+                    as: "p",
+                    cond: { $eq: ["$$p.isActive", true] },
+                  },
+                },
+                initialValue: 0,
+                in: {
+                  $add: [
+                    "$$value",
+                    {
+                      $multiply: [
+                        "$$this.price",
+                        { $ifNull: ["$$this.quantity", 0] },
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+            isEmployee: true
+          },
+        },
+        { $project: { products: 0 } },
+      ]);
+
+      // Attach roles, permissions and sync seqNumber for employee view
+      const employeeStoresWithRanking = await Promise.all(employeeStores.map(async (store) => {
+        const record = activeEmployeeRecords.find(r => r.store.toString() === store._id.toString());
+        
+        let displaySeq = store.seqNumber;
+        
+        if (!displaySeq) {
+          const rank = await Store.countDocuments({
+            owner: store.owner,
+            createdAt: { $lt: store.createdAt }
+          });
+          displaySeq = rank + 1;
+        }
+
+        return {
+          ...store,
+          seqNumber: displaySeq,
+          userRole: record.role?.name || "Employee",
+          permissions: record.role?.permissions || [],
+        };
+      }));
+
+      employeeStores = employeeStoresWithRanking;
+    }
+
+    // Combine and deduplicate
+    const allStores = [...ownedStores, ...employeeStores];
+    const uniqueStores = Array.from(new Map(allStores.map(s => [s._id.toString(), s])).values());
+
+    return uniqueStores;
   } catch (error) {
     throw error;
   }
+};
+
+/**
+ * Legacy Alias for backward compatibility with older tests
+ */
+const getStoresByOwner = getUserStores;
+
+export {
+  createStore,
+  getStore,
+  updateStore,
+  deleteStore,
+  getUserStores,
+  getStoresByOwner
 };

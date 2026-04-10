@@ -5,6 +5,7 @@ const mockFindOne = jest.fn();
 const mockCreate = jest.fn();
 const mockFindById = jest.fn();
 const mockAggregate = jest.fn();
+const mockCountDocuments = jest.fn();
 
 jest.unstable_mockModule("../../../../models", () => ({
   Store: {
@@ -12,7 +13,40 @@ jest.unstable_mockModule("../../../../models", () => ({
     create: mockCreate,
     findById: mockFindById,
     aggregate: mockAggregate,
+    countDocuments: mockCountDocuments,
   },
+}));
+
+jest.unstable_mockModule("../../../../models/store.model.js", () => ({
+  __esModule: true,
+  default: {
+    findOne: mockFindOne,
+    create: mockCreate,
+    findById: mockFindById,
+    aggregate: mockAggregate,
+    countDocuments: mockCountDocuments,
+  },
+}));
+
+jest.unstable_mockModule("../../../../models/product.model.js", () => ({
+  __esModule: true,
+  default: {},
+}));
+
+jest.unstable_mockModule("../../../../models/employee.model.js", () => ({
+  __esModule: true,
+  default: {
+    find: jest.fn().mockReturnValue({
+      select: jest.fn().mockReturnValue({
+        populate: jest.fn().mockResolvedValue([]),
+      }),
+    }),
+  },
+}));
+
+jest.unstable_mockModule("../../../../models/role.model.js", () => ({
+  __esModule: true,
+  default: {},
 }));
 
 const { createStore, getStore, updateStore, deleteStore, getStoresByOwner } =
@@ -23,6 +57,8 @@ describe("store.service.createStore", () => {
   beforeEach(() => {
     mockFindOne.mockReset();
     mockCreate.mockReset();
+    mockCountDocuments.mockReset();
+    mockCountDocuments.mockResolvedValue(0);
   });
 
   test("successfully creates a new store when all data is valid", async () => {
@@ -479,6 +515,8 @@ describe("store.service.deleteStore", () => {
 describe("store.service.getStoresByOwner", () => {
   beforeEach(() => {
     mockAggregate.mockReset();
+    mockCountDocuments.mockReset();
+    mockCountDocuments.mockResolvedValue(0);
   });
 
   test("successfully retrieves all active stores for an owner with aggregated data", async () => {
@@ -557,8 +595,12 @@ describe("store.service.getStoresByOwner", () => {
               },
             },
           },
+          userRole: "Owner",
+          permissions: [],
+          isEmployee: false
         },
       },
+      { $sort: { createdAt: 1 } },
       {
         $project: {
           products: 0,
