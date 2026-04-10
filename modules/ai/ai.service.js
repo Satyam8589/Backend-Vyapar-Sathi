@@ -8,6 +8,19 @@ const DEAD_STOCK_DAYS = 30;
 const DEFAULT_LEAD_TIME_DAYS = 3;
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || "http://localhost:8000";
 const AI_REQUEST_TIMEOUT_MS = 15000;
+const STORE_SUMMARY_CACHE_TTL_MS = 60 * 1000;
+const ANALYTICS_CONTEXT_CACHE_TTL_MS = 20 * 1000;
+const storeSummaryCache = new Map();
+const analyticsContextCache = new Map();
+const analyticsContextInFlight = new Map();
+
+const deepClone = (value) => {
+  if (typeof globalThis.structuredClone === "function") {
+    return globalThis.structuredClone(value);
+  }
+
+  return JSON.parse(JSON.stringify(value));
+};
 
 const toDateKey = (date) => new Date(date).toISOString().slice(0, 10);
 
@@ -285,6 +298,55 @@ const requestInsights = async (forecastItems, restockItems, anomalies, products)
     );
     // Fallback: return empty insights (can be enhanced with local fallback if needed)
     return [];
+  }
+};
+
+const requestStoreInsightSummary = async (store, forecastItems, restockItems, anomalies, insights, products) => {
+  try {
+    console.log(
+      `[AI SERVICE] Requesting store summary from FastAPI for store=${store?._id || "unknown"}`
+    );
+
+    const response = await postJson("/explain-store-insights", {
+      store_name: store?.name || "Store",
+      basis: forecastItems.some((item) => item.basis === "model")
+        ? "model"
+        : forecastItems.some((item) => item.basis !== "live")
+          ? "demo-assisted"
+          : "live",
+      forecast_items: forecastItems,
+      restock_items: restockItems,
+      anomalies,
+      insights,
+      products,
+    });
+
+    console.log(`[AI SERVICE] Store summary response received for store=${store?._id || "unknown"}`);
+    return response || null;
+  } catch (error) {
+    console.warn(
+      `[AI SERVICE] Store summary request failed for store=${store?._id || "unknown"}; falling back to local summary`,
+      error?.message || error
+    );
+
+    const topForecast = [...forecastItems].sort(
+      (a, b) => b.predictedDemand7d - a.predictedDemand7d
+    )[0];
+    const urgentRestock = restockItems.filter((item) => item.priority === "red");
+
+    return {
+      title: `${store?.name || "Store"} sales overview`,
+      summary: `${store?.name || "Store"} has ${products.length} products, ${forecastItems.length} forecasted items, ${urgentRestock.length} urgent restock alerts, and ${anomalies.length} anomalies. ${topForecast ? `Top demand is centered on ${topForecast.productName}.` : ""}`.trim(),
+      recommendation: urgentRestock.length
+        ? `Prioritize ${urgentRestock[0].productName} immediately, then review the rest of the urgent restock list and low-selling products.`
+        : "No urgent restock action is required right now, but keep monitoring demand shifts and category balance.",
+      basis: forecastItems.some((item) => item.basis === "model")
+        ? "model"
+        : forecastItems.some((item) => item.basis !== "live")
+          ? "demo-assisted"
+          : "live",
+      llmUsed: false,
+    };
   }
 };
 
@@ -701,7 +763,25 @@ const requestInsightExplanation = async ({
 };
 
 const loadAnalyticsContext = async (storeId, userId) => {
-  const store = await assertStoreOwner(storeId, userId);
+  const cacheKey = `${storeId}:${userId}`;
+  const cached = analyticsContextCache.get(cacheKey);
+  if (cached && Date.now() - cached.cachedAt < ANALYTICS_CONTEXT_CACHE_TTL_MS) {
+    console.log(`[AI SERVICE] loadAnalyticsContext cache HIT for store=${storeId}`);
+    return deepClone(cached.payload);
+  }
+
+  if (analyticsContextInFlight.has(cacheKey)) {
+    console.log(`[AI SERVICE] loadAnalyticsContext in-flight reuse for store=${storeId}`);
+    const payload = await analyticsContextInFlight.get(cacheKey);
+    return deepClone(payload);
+  }
+
+  const task = (async () => {
+  const storeDoc = await assertStoreOwner(storeId, userId);
+  const store =
+    storeDoc && typeof storeDoc.toObject === "function"
+      ? storeDoc.toObject()
+      : storeDoc;
   const products = await Product.find({
     store: store._id,
     isActive: true,
@@ -736,12 +816,31 @@ const loadAnalyticsContext = async (storeId, userId) => {
     `[AI SERVICE] Analytics context built for store=${storeId} products=${products.length} forecastItems=${forecastItems.length} insights=${insights.length} anomalies=${anomalies.length}`
   );
 
-  return {
+  const payload = {
+    store,
     products,
     forecastItems,
     restockItems,
     insights,
+    anomalies,
   };
+
+  analyticsContextCache.set(cacheKey, {
+    cachedAt: Date.now(),
+    payload,
+  });
+
+  return payload;
+  })();
+
+  analyticsContextInFlight.set(cacheKey, task);
+
+  try {
+    const payload = await task;
+    return deepClone(payload);
+  } finally {
+    analyticsContextInFlight.delete(cacheKey);
+  }
 };
 
 export const getStoreForecast = async (storeId, userId) => {
@@ -767,6 +866,26 @@ export const getStoreInsights = async (storeId, userId) => {
   const { insights } = await loadAnalyticsContext(storeId, userId);
   console.log(`[AI SERVICE] getStoreInsights retrieved ${insights.length} insights from FastAPI analytics service`);
   return insights;
+};
+
+export const getStoreSummary = async (storeId, userId) => {
+  console.log(`[AI SERVICE] getStoreSummary START for store=${storeId}`);
+
+  const cacheKey = `${storeId}:${userId}`;
+  const cached = storeSummaryCache.get(cacheKey);
+  if (cached && Date.now() - cached.cachedAt < STORE_SUMMARY_CACHE_TTL_MS) {
+    console.log(`[AI SERVICE] getStoreSummary cache HIT for store=${storeId}`);
+    return cached.payload;
+  }
+
+  const { store, forecastItems, restockItems, insights, anomalies, products } = await loadAnalyticsContext(storeId, userId);
+  const summary = await requestStoreInsightSummary(store, forecastItems, restockItems, anomalies, insights, products);
+  storeSummaryCache.set(cacheKey, {
+    cachedAt: Date.now(),
+    payload: summary,
+  });
+  console.log(`[AI SERVICE] getStoreSummary completed for store=${storeId}`);
+  return summary;
 };
 
 export const getProductInsightDetail = async (storeId, productId, userId) => {
