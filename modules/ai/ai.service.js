@@ -200,6 +200,7 @@ const postJson = async (path, payload) => {
   );
 
   try {
+    console.log(`[AI SERVICE] POST ${AI_SERVICE_URL}${path}`);
     const response = await fetch(`${AI_SERVICE_URL}${path}`, {
       method: "POST",
       headers: {
@@ -210,20 +211,30 @@ const postJson = async (path, payload) => {
     });
 
     if (!response.ok) {
+      const responseText = await response.text().catch(() => "");
+      console.warn(
+        `[AI SERVICE] Non-2xx response from ${path}: ${response.status} ${response.statusText}`,
+        responseText
+      );
       throw new Error(`AI service request failed with ${response.status}`);
     }
 
+    console.log(`[AI SERVICE] Success ${AI_SERVICE_URL}${path}`);
     return await response.json();
   } finally {
     clearTimeout(timeout);
   }
 };
 
-const requestForecasts = async (seriesPayload) => {
+const requestForecasts = async (storeId, seriesPayload) => {
   try {
+    console.log(
+      `[AI SERVICE] Requesting forecast for store=${storeId} series=${seriesPayload.length}`
+    );
     const response = await postJson("/forecast", {
         horizon_days: FORECAST_HORIZON_DAYS,
         series: seriesPayload.map((series) => ({
+          store_id: String(storeId),
           product_id: series.productId,
           product_name: series.productName,
           current_stock: series.currentStock,
@@ -237,9 +248,67 @@ const requestForecasts = async (seriesPayload) => {
         })),
       });
 
+    console.log(
+      `[AI SERVICE] Forecast response received for store=${storeId} results=${response?.results?.length || 0}`
+    );
     return response?.results || [];
   } catch (error) {
+    console.warn(
+      `[AI SERVICE] Forecast request failed for store=${storeId}; falling back to local forecast`,
+      error?.message || error
+    );
     return seriesPayload.map((series) => forecastSeriesLocally(series));
+  }
+};
+
+const requestInsights = async (forecastItems, restockItems, anomalies, products) => {
+  try {
+    console.log(
+      `[AI SERVICE] Requesting insights from FastAPI (forecast_items=${forecastItems.length} restock_items=${restockItems.length})`
+    );
+    
+    const response = await postJson("/analytics/insights", {
+      forecast_items: forecastItems,
+      restock_items: restockItems,
+      anomalies: anomalies,
+      products: products,
+    });
+
+    console.log(
+      `[AI SERVICE] Insights response received: count=${response?.count || 0}`
+    );
+    return response?.insights || [];
+  } catch (error) {
+    console.warn(
+      `[AI SERVICE] Insights request failed; falling back to local computation`,
+      error?.message || error
+    );
+    // Fallback: return empty insights (can be enhanced with local fallback if needed)
+    return [];
+  }
+};
+
+const requestAnomalies = async (seriesCollection) => {
+  try {
+    console.log(
+      `[AI SERVICE] Detecting anomalies from FastAPI (series=${seriesCollection.length})`
+    );
+    
+    const response = await postJson("/analytics/anomalies", {
+      series_collection: seriesCollection,
+      min_anomaly_score: 2.0,
+    });
+
+    console.log(
+      `[AI SERVICE] Anomalies response received: count=${response?.count || 0}`
+    );
+    return response?.anomalies || [];
+  } catch (error) {
+    console.warn(
+      `[AI SERVICE] Anomalies request failed; returning empty list`,
+      error?.message || error
+    );
+    return [];
   }
 };
 
@@ -260,6 +329,13 @@ export const buildForecastItems = (products, seriesCollection, forecastResults) 
         ? Number((currentStock / predictedDailyDemand).toFixed(1))
         : null;
 
+    // Determine badge: show forecast method (model vs fallback), not just data basis
+    const forecastMethod = result.source || "unknown";
+    let displayBasis = history?.basis || "demo-assisted";
+    if (forecastMethod === "model") {
+      displayBasis = "model"; // Show that model-generated forecast was used
+    }
+
     return {
       productId: key,
       productName: product.name,
@@ -270,7 +346,8 @@ export const buildForecastItems = (products, seriesCollection, forecastResults) 
       predictedDemand7d: Number(result.predicted_demand_7d || 0),
       trendPercent: Number(result.trend_percent || 0),
       confidence: result.confidence || "low",
-      basis: history?.basis || "demo-assisted",
+      forecastSource: result.source || "unknown",
+      basis: displayBasis,
       totalQuantity30d: history?.totalQuantity30d || 0,
       totalRevenue30d: history?.totalRevenue30d || 0,
       lastSoldAt: history?.lastSoldAt || null,
@@ -410,9 +487,12 @@ export const buildInsights = ({
         productName: item.productName,
         predictedDemand7d: item.predictedDemand7d,
       })),
-      basis: topForecast.some((item) => item.basis !== "live")
-        ? "demo-assisted"
-        : "live",
+      // Show 'model' if any item used model forecast, else show data basis
+      basis: topForecast.some((item) => item.basis === "model")
+        ? "model"
+        : topForecast.some((item) => item.basis !== "live")
+          ? "demo-assisted"
+          : "live",
     });
   }
 
@@ -438,9 +518,11 @@ export const buildInsights = ({
         soldLast30Days: item.totalQuantity30d,
         currentStock: item.currentStock,
       })),
-      basis: slowMovers.some((item) => item.basis !== "live")
-        ? "demo-assisted"
-        : "live",
+      basis: slowMovers.some((item) => item.basis === "model")
+        ? "model"
+        : slowMovers.some((item) => item.basis !== "live")
+          ? "demo-assisted"
+          : "live",
     });
   }
 
@@ -473,9 +555,11 @@ export const buildInsights = ({
         currentStock: item.currentStock,
         lastSoldAt: item.lastSoldAt,
       })),
-      basis: deadStockItems.some((item) => item.basis !== "live")
-        ? "demo-assisted"
-        : "live",
+      basis: deadStockItems.some((item) => item.basis === "model")
+        ? "model"
+        : deadStockItems.some((item) => item.basis !== "live")
+          ? "demo-assisted"
+          : "live",
     });
   }
 
@@ -490,9 +574,7 @@ export const buildInsights = ({
       summary: `${anomaly.productName} shows a ${anomaly.direction} versus its recent baseline.`,
       severity: anomaly.direction === "spike" ? "warning" : "danger",
       metrics: anomalies.slice(0, 5),
-      basis: anomalies.some((item) => item.basis !== "live")
-        ? "demo-assisted"
-        : "live",
+      basis: "live",
     });
   }
 
@@ -545,9 +627,11 @@ export const buildInsights = ({
       summary: `${dominant.category} contributes ${dominant.revenueShare.toFixed(0)}% of recent revenue versus ${dominant.stockShare.toFixed(0)}% of stock value.`,
       severity: "info",
       metrics: categoryMix.slice(0, 5),
-      basis: forecastItems.some((item) => item.basis !== "live")
-        ? "demo-assisted"
-        : "live",
+      basis: forecastItems.some((item) => item.basis === "model")
+        ? "model"
+        : forecastItems.some((item) => item.basis !== "live")
+          ? "demo-assisted"
+          : "live",
     });
   }
 
@@ -561,9 +645,11 @@ export const buildInsights = ({
       summary: `${urgentRestock[0].productName} should be reordered immediately to avoid a stockout.`,
       severity: "danger",
       metrics: urgentRestock,
-      basis: urgentRestock.some((item) => item.basis !== "live")
-        ? "demo-assisted"
-        : "live",
+      basis: urgentRestock.some((item) => item.basis === "model")
+        ? "model"
+        : urgentRestock.some((item) => item.basis !== "live")
+          ? "demo-assisted"
+          : "live",
     });
   }
 
@@ -632,7 +718,7 @@ const loadAnalyticsContext = async (storeId, userId) => {
 
   const dateKeys = buildDateWindow(LOOKBACK_DAYS);
   const seriesCollection = aggregateProductSeries(products, sales, dateKeys);
-  const forecastResults = await requestForecasts(seriesCollection);
+  const forecastResults = await requestForecasts(store._id, seriesCollection);
   const forecastItems = buildForecastItems(
     products,
     seriesCollection,
@@ -641,13 +727,14 @@ const loadAnalyticsContext = async (storeId, userId) => {
   const restockItems = forecastItems.map((item) =>
     buildRestockItem(item, store)
   );
-  const anomalies = detectAnomalies(seriesCollection);
-  const insights = buildInsights({
-    forecastItems,
-    restockItems,
-    anomalies,
-    products,
-  });
+  
+  // NEW: Call FastAPI for anomalies and insights computation
+  const anomalies = await requestAnomalies(seriesCollection);
+  const insights = await requestInsights(forecastItems, restockItems, anomalies, products);
+
+  console.log(
+    `[AI SERVICE] Analytics context built for store=${storeId} products=${products.length} forecastItems=${forecastItems.length} insights=${insights.length} anomalies=${anomalies.length}`
+  );
 
   return {
     products,
@@ -658,12 +745,16 @@ const loadAnalyticsContext = async (storeId, userId) => {
 };
 
 export const getStoreForecast = async (storeId, userId) => {
+  console.log(`[AI SERVICE] getStoreForecast START for store=${storeId}`);
   const { forecastItems } = await loadAnalyticsContext(storeId, userId);
+  console.log(`[AI SERVICE] getStoreForecast retrieved ${forecastItems.length} items from FastAPI forecast`);
   return forecastItems.sort((a, b) => b.predictedDemand7d - a.predictedDemand7d);
 };
 
 export const getStoreRestockPlan = async (storeId, userId) => {
+  console.log(`[AI SERVICE] getStoreRestockPlan START for store=${storeId}`);
   const { restockItems } = await loadAnalyticsContext(storeId, userId);
+  console.log(`[AI SERVICE] getStoreRestockPlan processed ${restockItems.length} items locally (no FastAPI call for restock logic)`);
 
   return restockItems.sort((a, b) => {
     const priorityRank = { red: 0, yellow: 1, green: 2 };
@@ -672,7 +763,9 @@ export const getStoreRestockPlan = async (storeId, userId) => {
 };
 
 export const getStoreInsights = async (storeId, userId) => {
+  console.log(`[AI SERVICE] getStoreInsights START for store=${storeId}`);
   const { insights } = await loadAnalyticsContext(storeId, userId);
+  console.log(`[AI SERVICE] getStoreInsights retrieved ${insights.length} insights from FastAPI analytics service`);
   return insights;
 };
 
