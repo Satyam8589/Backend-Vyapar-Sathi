@@ -5,6 +5,7 @@ import userRoutes from "../modules/user/user.routes.js";
 import cartRoutes from "../modules/cart/cart.routes.js";
 import saleRoutes from "../modules/sale/sale.routes.js";
 import aiRoutes from "../modules/ai/ai.routes.js";
+import analyticsRoutes from "../modules/analytics/analytics.route.js";
 import { Router } from "express";
 
 const router = Router();
@@ -19,6 +20,7 @@ router.use("/products", productRoutes);
 router.use("/cart", cartRoutes);
 router.use("/sales", saleRoutes);
 router.use("/ai", aiRoutes);
+router.use("/analytics", analyticsRoutes);
 
 export default router;
 

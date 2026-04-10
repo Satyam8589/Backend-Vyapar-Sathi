@@ -1,7 +1,7 @@
 import { Cart } from "../../models/index.js";
 import { Product } from "../../models/index.js";
 import { ApiError } from "../../utils/ApiError.js";
-import { assertCartAccess, assertStoreOwner } from "../store/storeAccess.service.js";
+import { assertCartAccess } from "../store/storeAccess.service.js";
 import { materializeSaleFromCart } from "../sale/sale.service.js";
 
 export const createCart = async (cartData) => {
@@ -88,25 +88,24 @@ export const processPayment = async (cartId, paymentId) => {
   return cart;
 };
 
-export const confirmPayment = async (cartId) => {
-  const cart = await Cart.findById(cartId);
-  if (!cart) throw new ApiError(404, "Cart not found");
+export const confirmPayment = async (cartId, userId) => {
+  if (!userId) {
+    throw new ApiError("User not registered. Please complete registration first.", 403);
+  }
+
+  const cart = await assertCartAccess(cartId, userId);
 
   if (cart.paymentStatus !== "paid") {
-    throw new ApiError(400, "Payment hasn't been made yet");
+    throw new ApiError("Payment hasn't been made yet", 400);
   }
 
-  cart.status = "completed";
-  await cart.save();
+  console.log(`[CART SERVICE] Confirming payment for cart=${cartId}`);
+  const result = await materializeSaleFromCart(cartId, userId);
+  console.log(
+    `[CART SERVICE] Payment confirmation completed for cart=${cartId} saleCreated=${result.saleCreated}`
+  );
 
-  // Here we should also update product inventory
-  for (const item of cart.products) {
-    await Product.findByIdAndUpdate(item.product, {
-      $inc: { quantity: -item.quantity },
-    });
-  }
-
-  return cart;
+  return result.cart;
 };
 
 export const getProductByBarcodeInCart = async (cartId, barcode) => {
