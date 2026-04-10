@@ -8,7 +8,9 @@ import {
 
 export const getForecastController = async (req, res) => {
   try {
+    console.log(`[AI CONTROLLER] GET /forecast for store=${req.params.storeId}`);
     const data = await getStoreForecast(req.params.storeId, req.user._id);
+    console.log(`[AI CONTROLLER] GET /forecast completed with ${data.length} items`);
     res
       .status(200)
       .json(new ApiResponse(data, "Forecast generated successfully", 200));
@@ -21,7 +23,9 @@ export const getForecastController = async (req, res) => {
 
 export const getRestockController = async (req, res) => {
   try {
+    console.log(`[AI CONTROLLER] GET /restock for store=${req.params.storeId}`);
     const data = await getStoreRestockPlan(req.params.storeId, req.user._id);
+    console.log(`[AI CONTROLLER] GET /restock completed with ${data.length} items`);
     res
       .status(200)
       .json(new ApiResponse(data, "Restock plan generated successfully", 200));
@@ -34,7 +38,9 @@ export const getRestockController = async (req, res) => {
 
 export const getInsightsController = async (req, res) => {
   try {
+    console.log(`[AI CONTROLLER] GET /insights for store=${req.params.storeId}`);
     const data = await getStoreInsights(req.params.storeId, req.user._id);
+    console.log(`[AI CONTROLLER] GET /insights completed with ${data.length} items`);
     res
       .status(200)
       .json(new ApiResponse(data, "Insights generated successfully", 200));
