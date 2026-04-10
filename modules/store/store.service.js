@@ -1,6 +1,8 @@
 import Store from "../../models/store.model.js";
 import { ApiError } from "../../utils/ApiError.js";
 import Product from "../../models/product.model.js";
+import Employee from "../../models/employee.model.js";
+import Role from "../../models/role.model.js";
 import mongoose from "mongoose";
 
 //create store service
@@ -164,7 +166,7 @@ export const getUserStores = async (userId) => {
     }
 
     // 2. Get stores where user is an active employee
-    const activeEmployeeRecords = await mongoose.model("Employee").find({ 
+    const activeEmployeeRecords = await Employee.find({ 
       user: userObjectId, 
       status: "active" 
     }).select("store role").populate("role");
