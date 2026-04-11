@@ -57,8 +57,8 @@ export const addItemController = async (req, res) => {
 export const processPaymentController = async (req, res) => {
   try {
     const { cartId } = req.params;
-    const { paymentId } = req.body;
-    const cart = await processPayment(cartId, paymentId);
+    const { paymentId, subtotal, discount, totalPrice } = req.body;
+    const cart = await processPayment(cartId, paymentId, subtotal, discount, totalPrice);
     res.status(200).json(new ApiResponse(cart, "Payment processed", 200));
   } catch (error) {
     res.status(error.statusCode || 500).json({
