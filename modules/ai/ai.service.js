@@ -374,6 +374,149 @@ const requestAnomalies = async (seriesCollection) => {
   }
 };
 
+const summarizeBasis = (forecastItems) => {
+  if (forecastItems.some((item) => item.basis === "model")) {
+    return "model";
+  }
+  if (forecastItems.some((item) => item.basis !== "live")) {
+    return "demo-assisted";
+  }
+  return "live";
+};
+
+const buildCopilotContextPayload = ({
+  store,
+  forecastItems,
+  restockItems,
+  anomalies,
+  insights,
+}) => {
+  const prioritizedRestock = [...restockItems]
+    .sort((a, b) => {
+      const rank = { red: 0, yellow: 1, green: 2 };
+      return rank[a.priority] - rank[b.priority];
+    })
+    .slice(0, 5)
+    .map((item) => ({
+      product_name: item.productName,
+      recommended_qty: item.recommendedQty,
+      priority: item.priority,
+      days_to_stockout: item.daysToStockout,
+    }));
+
+  return {
+    store_name: store?.name || "Store",
+    basis: summarizeBasis(forecastItems),
+    forecast_items: [...forecastItems]
+      .sort((a, b) => b.predictedDemand7d - a.predictedDemand7d)
+      .slice(0, 5)
+      .map((item) => ({
+        product_name: item.productName,
+        predicted_demand_7d: item.predictedDemand7d,
+        trend_percent: item.trendPercent,
+      })),
+    restock_items: prioritizedRestock,
+    anomalies: anomalies.slice(0, 5).map((item) => ({
+      product_name: item.productName,
+      direction: item.direction,
+      z_score: item.zScore,
+    })),
+    insights: insights.slice(0, 5).map((item) => ({
+      type: item.type,
+      title: item.title,
+      summary: item.summary,
+      severity: item.severity,
+      metrics: Array.isArray(item.metrics) ? item.metrics.slice(0, 5) : [],
+    })),
+  };
+};
+
+const buildCopilotFallback = ({ store, message, contextPayload }) => {
+  const restock = contextPayload.restock_items?.[0];
+  const demand = contextPayload.forecast_items?.[0];
+
+  let summary = `${store?.name || "Store"} Copilot fallback: unable to reach AI service at this moment.`;
+  if (restock) {
+    summary += ` Prioritize ${restock.product_name} (priority: ${restock.priority}, recommended qty: ${restock.recommended_qty}).`;
+  } else if (demand) {
+    summary += ` Highest demand item currently is ${demand.product_name} (${Number(demand.predicted_demand_7d || 0).toFixed(1)} units/7d).`;
+  }
+
+  return {
+    question: message,
+    summary,
+    key_signals: [
+      restock
+        ? `${restock.product_name} is the top replenishment candidate.`
+        : "No urgent restock signal in fallback mode.",
+      demand
+        ? `${demand.product_name} is currently projected as top demand.`
+        : "No strong demand signal in fallback mode.",
+    ],
+    recommended_actions: [
+      "Validate top restock item against supplier lead time today.",
+      "Recheck forecast versus actual sales after next daily close.",
+    ],
+    risk_level: "medium",
+    basis: contextPayload.basis,
+    llm_used: false,
+    fallback_used: true,
+  };
+};
+
+const toSseEvent = (event, payload) =>
+  `event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`;
+
+const buildCopilotFallbackText = (fallbackPayload) => {
+  const lines = [
+    `Summary\n${fallbackPayload.summary}`,
+    "Key Signals",
+    ...(fallbackPayload.key_signals || []).map((item) => `- ${item}`),
+    "Recommended Actions",
+    ...(fallbackPayload.recommended_actions || []).map((item) => `- ${item}`),
+  ];
+  return lines.join("\n");
+};
+
+async function* streamFastApiCopilot(contextPayload, message) {
+  const response = await fetch(`${AI_SERVICE_URL}/chat/copilot/stream`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      question: message,
+      context: contextPayload,
+    }),
+  });
+
+  if (!response.ok) {
+    const responseText = await response.text().catch(() => "");
+    throw new Error(
+      `copilot stream failed with ${response.status}: ${responseText}`
+    );
+  }
+
+  if (!response.body) {
+    throw new Error("copilot stream response did not include a body");
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder("utf-8");
+
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) {
+        break;
+      }
+      yield decoder.decode(value, { stream: true });
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
 export const buildForecastItems = (products, seriesCollection, forecastResults) => {
   const resultMap = new Map(
     forecastResults.map((result) => [String(result.product_id), result])
@@ -932,3 +1075,69 @@ export const getProductInsightDetail = async (storeId, productId, userId) => {
     relatedInsights,
   };
 };
+
+export const askStoreCopilot = async (storeId, userId, message) => {
+  const { store, forecastItems, restockItems, insights, anomalies } =
+    await loadAnalyticsContext(storeId, userId);
+
+  const contextPayload = buildCopilotContextPayload({
+    store,
+    forecastItems,
+    restockItems,
+    anomalies,
+    insights,
+  });
+
+  try {
+    const response = await postJson("/chat/copilot", {
+      question: message,
+      context: contextPayload,
+    });
+
+    return {
+      question: message,
+      ...response,
+    };
+  } catch (error) {
+    console.warn(
+      `[AI SERVICE] Copilot request failed for store=${storeId}; falling back to local copilot response`,
+      error?.message || error
+    );
+    return buildCopilotFallback({ store, message, contextPayload });
+  }
+};
+
+export async function* streamStoreCopilot(storeId, userId, message) {
+  const { store, forecastItems, restockItems, insights, anomalies } =
+    await loadAnalyticsContext(storeId, userId);
+
+  const contextPayload = buildCopilotContextPayload({
+    store,
+    forecastItems,
+    restockItems,
+    anomalies,
+    insights,
+  });
+
+  try {
+    for await (const chunk of streamFastApiCopilot(contextPayload, message)) {
+      yield chunk;
+    }
+  } catch (error) {
+    console.warn(
+      `[AI SERVICE] Copilot stream failed for store=${storeId}; using fallback stream`,
+      error?.message || error
+    );
+
+    const fallback = buildCopilotFallback({ store, message, contextPayload });
+    const fallbackText = buildCopilotFallbackText(fallback);
+
+    yield toSseEvent("start", { basis: fallback.basis });
+    for (let index = 0; index < fallbackText.length; index += 48) {
+      yield toSseEvent("token", {
+        text: fallbackText.slice(index, index + 48),
+      });
+    }
+    yield toSseEvent("done", fallback);
+  }
+}

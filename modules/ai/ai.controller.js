@@ -1,5 +1,7 @@
 import { ApiResponse } from "../../utils/ApiResponse.js";
 import {
+  askStoreCopilot,
+  streamStoreCopilot,
   getProductInsightDetail,
   getStoreForecast,
   getStoreInsights,
@@ -81,5 +83,60 @@ export const getProductInsightController = async (req, res) => {
     res
       .status(error.statusCode || 500)
       .json(new ApiResponse(null, error.message, error.statusCode || 500));
+  }
+};
+
+export const getCopilotController = async (req, res) => {
+  try {
+    const message = String(req.body?.message || "").trim();
+
+    if (!message) {
+      return res
+        .status(400)
+        .json(new ApiResponse(null, "message is required", 400));
+    }
+
+    const data = await askStoreCopilot(req.params.storeId, req.user._id, message);
+    res
+      .status(200)
+      .json(new ApiResponse(data, "Copilot response generated successfully", 200));
+  } catch (error) {
+    res
+      .status(error.statusCode || 500)
+      .json(new ApiResponse(null, error.message, error.statusCode || 500));
+  }
+};
+
+export const getCopilotStreamController = async (req, res) => {
+  try {
+    const message = String(req.body?.message || "").trim();
+
+    if (!message) {
+      return res
+        .status(400)
+        .json(new ApiResponse(null, "message is required", 400));
+    }
+
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no");
+    if (typeof res.flushHeaders === "function") {
+      res.flushHeaders();
+    }
+
+    for await (const chunk of streamStoreCopilot(req.params.storeId, req.user._id, message)) {
+      res.write(chunk);
+    }
+
+    res.end();
+  } catch (error) {
+    const message = error?.message || "Streaming failed";
+    try {
+      res.write(`event: error\ndata: ${JSON.stringify({ message })}\n\n`);
+      res.end();
+    } catch {
+      res.end();
+    }
   }
 };
