@@ -132,30 +132,46 @@ export const getProductByBarcodeInCart = async (cartId, barcode) => {
   return product;
 };
 
-export const getBillHistory = async (storeId, limit = 50, page = 1) => {
+export const getBillHistory = async (storeId, limit = 50, page = 1, filters = {}) => {
   try {
     if (!storeId) {
       throw new ApiError(400, "Store ID is required");
     }
 
-    const skip = (page - 1) * limit;
-
-    const bills = await Cart.find({
+    const { date, month, year } = filters;
+    const query = {
       store: storeId,
       status: "completed",
       paymentStatus: "paid",
-    })
+    };
+
+    // Apply date filters
+    if (date) {
+      const start = new Date(date);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(date);
+      end.setHours(23, 59, 59, 999);
+      query.updatedAt = { $gte: start, $lte: end };
+    } else if (month && year) {
+      const start = new Date(year, month - 1, 1);
+      const end = new Date(year, month, 0, 23, 59, 59, 999);
+      query.updatedAt = { $gte: start, $lte: end };
+    } else if (year) {
+      const start = new Date(year, 0, 1);
+      const end = new Date(year, 11, 31, 23, 59, 59, 999);
+      query.updatedAt = { $gte: start, $lte: end };
+    }
+
+    const skip = (page - 1) * limit;
+
+    const bills = await Cart.find(query)
       .populate("user", "name email")
       .populate("products.product", "name barcode")
       .sort({ updatedAt: -1 })
       .limit(limit)
       .skip(skip);
 
-    const total = await Cart.countDocuments({
-      store: storeId,
-      status: "completed",
-      paymentStatus: "paid",
-    });
+    const total = await Cart.countDocuments(query);
 
     return {
       bills,

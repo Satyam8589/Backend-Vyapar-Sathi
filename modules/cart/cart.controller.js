@@ -101,11 +101,12 @@ export const getProductByBarcodeController = async (req, res) => {
 export const getBillHistoryController = async (req, res) => {
   try {
     const { storeId } = req.params;
-    const { limit = 50, page = 1 } = req.query;
+    const { limit = 50, page = 1, date, month, year } = req.query;
     const bills = await getBillHistory(
       storeId,
       parseInt(limit),
       parseInt(page),
+      { date, month, year }
     );
     res
       .status(200)
