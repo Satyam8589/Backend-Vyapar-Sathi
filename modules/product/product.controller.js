@@ -1,6 +1,7 @@
 import { addProduct, getProductById, updateProductById, deleteProductById, getAllProducts, getProductByBarcode } from "./product.service.js";
 import { resolveBarcode } from "./resolver.service.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
+import { uploadBufferToCloudinary } from "../../utils/cloudinary.js";
 
 //create product controller
 export const addProductController = async (req, res) => {
@@ -100,5 +101,34 @@ export const getProductByBarcodeController = async (req, res) => {
         res.status(200).json(new ApiResponse(product, "Product found", 200));
     } catch (error) {
         res.status(error.statusCode || 500).json(new ApiResponse(null, error.message, error.statusCode || 500));
+    }
+};
+
+// Upload a product image to Cloudinary
+export const uploadProductImageController = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json(new ApiResponse(null, "Image file is required", 400));
+        }
+
+        const uploaded = await uploadBufferToCloudinary(req.file.buffer, {
+            folder: "vyapar-sathi/products",
+            resource_type: "image",
+        });
+
+        return res.status(200).json(
+            new ApiResponse(
+                {
+                    imageUrl: uploaded.secure_url,
+                    publicId: uploaded.public_id,
+                },
+                "Image uploaded successfully",
+                200,
+            ),
+        );
+    } catch (error) {
+        return res.status(error.statusCode || 500).json(
+            new ApiResponse(null, error.message || "Failed to upload image", error.statusCode || 500),
+        );
     }
 };

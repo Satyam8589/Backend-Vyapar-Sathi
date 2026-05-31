@@ -34,6 +34,25 @@ Scalability	Modular backend, clean API structure, proper DB relationships
 
 🔄 Complete Product Flow
 User Login → Create/Select Store → Add Products (Barcode) → Sell (Scan → Cart → Payment → Confirm) → Inventory Auto-Updates → Store-Wise Dashboard Updates
+
+## Product Image Upload
+
+Product images are uploaded separately to Cloudinary before the product is saved.
+
+### Required environment variables
+
+- `CLOUDINARY_CLOUD_NAME`
+- `CLOUDINARY_API_KEY`
+- `CLOUDINARY_API_SECRET`
+
+### Flow
+
+1. The frontend selects an image from the device gallery or camera.
+2. The image is sent to `POST /api/product/upload-image` as multipart form data.
+3. The backend uploads the file to Cloudinary and returns the `secure_url`.
+4. The frontend stores that URL in the add-product form and submits it with the existing JSON `add_product` request.
+5. If no image is uploaded, the product still saves normally.
+
 🏗️ Build Strategy
 Backend first → Backend-Vyapar-Sathi (current repo)
 Frontend later → Separate repository
