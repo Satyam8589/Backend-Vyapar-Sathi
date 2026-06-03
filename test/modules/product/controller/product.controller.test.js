@@ -6,6 +6,8 @@ const mockUpdateProductById = jest.fn();
 const mockDeleteProductById = jest.fn();
 const mockGetAllProducts = jest.fn();
 const mockGetProductByBarcode = jest.fn();
+const mockGetMasterProduct = jest.fn();
+const mockSaveMasterProduct = jest.fn();
 
 jest.unstable_mockModule(
   "../../../../modules/product/product.service.js",
@@ -16,6 +18,8 @@ jest.unstable_mockModule(
     deleteProductById: mockDeleteProductById,
     getAllProducts: mockGetAllProducts,
     getProductByBarcode: mockGetProductByBarcode,
+    getMasterProduct: mockGetMasterProduct,
+    saveMasterProduct: mockSaveMasterProduct,
   }),
 );
 
