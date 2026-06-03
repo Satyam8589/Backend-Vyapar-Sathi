@@ -1,5 +1,6 @@
-import { Product } from '../../models/index.js';
+import { Product, MasterProduct } from '../../models/index.js';
 import { ApiError } from "../../utils/ApiError.js";
+import { normalizeProduct } from "./normalizer.service.js";
 
 //create product service
 export const addProduct = async (productData) => {
@@ -121,3 +122,53 @@ export const getProductByBarcode = async (barcode, storeId) => {
         throw error;
     }
 };
+
+/**
+ * Lookup a barcode in the MasterProduct (global catalog) without hitting external APIs.
+ * Returns the MasterProduct document or null if not found.
+ *
+ * @param {string} barcode
+ * @returns {Promise<object|null>}
+ */
+export const getMasterProduct = async (barcode) => {
+    if (!barcode || barcode.trim() === "") {
+        throw new ApiError("Barcode is required", 400);
+    }
+    const master = await MasterProduct.findOne({ barcode: barcode.trim() });
+    return master || null;
+};
+
+/**
+ * Save a product to the global MasterProduct catalog.
+ * Idempotent: skips saving if the barcode already exists.
+ * Normalizes data before persisting so the catalog stays clean.
+ *
+ * @param {{ barcode: string, name?: string, brand?: string, category?: string, image?: string, source?: string }} productData
+ * @returns {Promise<{ saved: boolean, product: object|null }>}
+ */
+export const saveMasterProduct = async (productData) => {
+    if (!productData?.barcode || productData.barcode.trim() === "") {
+        throw new ApiError("Barcode is required to save to master catalog", 400);
+    }
+
+    const barcode = productData.barcode.trim();
+
+    // Idempotency check — never overwrite existing entries
+    const existing = await MasterProduct.findOne({ barcode });
+    if (existing) {
+        return { saved: false, product: existing };
+    }
+
+    // Normalize before persisting
+    const normalized = normalizeProduct({
+        name: productData.name || null,
+        brand: productData.brand || null,
+        quantity: productData.quantity || null,
+        category: productData.category || null,
+        image: productData.image || null,
+        source: productData.source || "user-submitted",
+    });
+
+    const master = await MasterProduct.create({ barcode, ...normalized });
+    return { saved: true, product: master };
+};

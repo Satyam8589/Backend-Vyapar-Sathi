@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { addProductController, getProductController, updateProductController, deleteProductController, getAllProductsController, getProductByBarcodeController, resolveProduct, uploadProductImageController } from "./product.controller.js";
+import { addProductController, getProductController, updateProductController, deleteProductController, getAllProductsController, getProductByBarcodeController, resolveProduct, uploadProductImageController, getMasterProductController, saveMasterProductController } from "./product.controller.js";
 import authMiddleware from "../../middlewares/auth.middleware.js";
 import requireUser from "../../middlewares/requireUser.middleware.js";
 import { uploadSingleProductImage } from "./product.upload.middleware.js";
@@ -33,6 +33,12 @@ router.route("/all").get(getAllProductsController);
 router.route("/barcode/:barcode").get(getProductByBarcodeController);
 
 router.route("/add_product").post(addProductController);
+
+// ─── Master Product catalog (authenticated) ─────────────────────────────────
+// Lookup a barcode in the shared catalog without calling external APIs
+router.route("/master/:barcode").get(getMasterProductController);
+// Save a manually-entered product to the shared catalog (idempotent)
+router.route("/master").post(saveMasterProductController);
 
 router.route("/:id").get(getProductController);
 router.route("/:id").put(updateProductController);

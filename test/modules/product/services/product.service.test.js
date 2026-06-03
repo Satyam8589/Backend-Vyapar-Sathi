@@ -5,12 +5,20 @@ const mockCreate = jest.fn();
 const mockFindById = jest.fn();
 const mockFind = jest.fn();
 
+// MasterProduct mock fns (separate so they don't interfere with Product mocks)
+const mockMasterFindOne = jest.fn();
+const mockMasterCreate = jest.fn();
+
 jest.unstable_mockModule("../../../../models", () => ({
   Product: {
     findOne: mockFindOne,
     create: mockCreate,
     findById: mockFindById,
     find: mockFind,
+  },
+  MasterProduct: {
+    findOne: mockMasterFindOne,
+    create: mockMasterCreate,
   },
 }));
 
@@ -21,6 +29,8 @@ const {
   deleteProductById,
   getAllProducts,
   getProductByBarcode,
+  getMasterProduct,
+  saveMasterProduct,
 } = await import("../../../../modules/product/product.service.js");
 const { ApiError } = await import("../../../../utils/ApiError.js");
 
@@ -787,6 +797,246 @@ describe("product.service.getProductByBarcode", () => {
     let caughtError;
     try {
       await getProductByBarcode(barcode, storeId);
+    } catch (error) {
+      caughtError = error;
+    }
+
+    expect(caughtError).toBe(dbError);
+  });
+});
+
+describe("product.service.getMasterProduct", () => {
+  beforeEach(() => {
+    mockMasterFindOne.mockReset();
+  });
+
+  test("throws 400 when barcode is empty string", async () => {
+    let caughtError;
+    try {
+      await getMasterProduct("");
+    } catch (error) {
+      caughtError = error;
+    }
+
+    expect(caughtError).toBeInstanceOf(ApiError);
+    expect(caughtError).toMatchObject({
+      message: "Barcode is required",
+      statusCode: 400,
+    });
+    expect(mockMasterFindOne).not.toHaveBeenCalled();
+  });
+
+  test("throws 400 when barcode is falsy (null/undefined)", async () => {
+    let caughtError;
+    try {
+      await getMasterProduct(null);
+    } catch (error) {
+      caughtError = error;
+    }
+
+    expect(caughtError).toBeInstanceOf(ApiError);
+    expect(caughtError).toMatchObject({
+      message: "Barcode is required",
+      statusCode: 400,
+    });
+    expect(mockMasterFindOne).not.toHaveBeenCalled();
+  });
+
+  test("returns the MasterProduct document when found", async () => {
+    const barcode = "8901234567890";
+    const masterDoc = {
+      _id: "master123",
+      barcode,
+      name: "Brand Biscuit",
+      brand: "Brand Co",
+      category: "Food",
+    };
+
+    mockMasterFindOne.mockResolvedValue(masterDoc);
+
+    const result = await getMasterProduct(barcode);
+
+    expect(result).toEqual(masterDoc);
+    expect(mockMasterFindOne).toHaveBeenCalledWith({ barcode: barcode.trim() });
+  });
+
+  test("returns null when barcode is not in master catalog", async () => {
+    const barcode = "0000000000000";
+    mockMasterFindOne.mockResolvedValue(null);
+
+    const result = await getMasterProduct(barcode);
+
+    expect(result).toBeNull();
+    expect(mockMasterFindOne).toHaveBeenCalledWith({ barcode: barcode.trim() });
+  });
+
+  test("propagates database errors", async () => {
+    const dbError = new Error("Database connection failed");
+    mockMasterFindOne.mockRejectedValue(dbError);
+
+    let caughtError;
+    try {
+      await getMasterProduct("1234567890");
+    } catch (error) {
+      caughtError = error;
+    }
+
+    expect(caughtError).toBe(dbError);
+  });
+});
+
+describe("product.service.saveMasterProduct", () => {
+  beforeEach(() => {
+    mockMasterFindOne.mockReset();
+    mockMasterCreate.mockReset();
+  });
+
+  test("throws 400 when barcode is missing from productData", async () => {
+    let caughtError;
+    try {
+      await saveMasterProduct({ name: "Some Product" });
+    } catch (error) {
+      caughtError = error;
+    }
+
+    expect(caughtError).toBeInstanceOf(ApiError);
+    expect(caughtError).toMatchObject({
+      message: "Barcode is required to save to master catalog",
+      statusCode: 400,
+    });
+    expect(mockMasterFindOne).not.toHaveBeenCalled();
+    expect(mockMasterCreate).not.toHaveBeenCalled();
+  });
+
+  test("throws 400 when barcode is an empty string", async () => {
+    let caughtError;
+    try {
+      await saveMasterProduct({ barcode: "   ", name: "Some Product" });
+    } catch (error) {
+      caughtError = error;
+    }
+
+    expect(caughtError).toBeInstanceOf(ApiError);
+    expect(caughtError).toMatchObject({
+      message: "Barcode is required to save to master catalog",
+      statusCode: 400,
+    });
+    expect(mockMasterCreate).not.toHaveBeenCalled();
+  });
+
+  test("throws 400 when productData is null/undefined", async () => {
+    let caughtError;
+    try {
+      await saveMasterProduct(null);
+    } catch (error) {
+      caughtError = error;
+    }
+
+    expect(caughtError).toBeInstanceOf(ApiError);
+    expect(caughtError).toMatchObject({
+      message: "Barcode is required to save to master catalog",
+      statusCode: 400,
+    });
+  });
+
+  test("is idempotent — returns existing entry without creating a new one", async () => {
+    const barcode = "1234567890123";
+    const existingMaster = {
+      _id: "master001",
+      barcode,
+      name: "Existing Item",
+    };
+
+    mockMasterFindOne.mockResolvedValue(existingMaster);
+
+    const result = await saveMasterProduct({ barcode, name: "Different Name" });
+
+    expect(result).toEqual({ saved: false, product: existingMaster });
+    expect(mockMasterFindOne).toHaveBeenCalledWith({ barcode });
+    expect(mockMasterCreate).not.toHaveBeenCalled();
+  });
+
+  test("creates and returns new master product when barcode is not found", async () => {
+    const barcode = "9876543210987";
+    const productData = {
+      barcode,
+      name: "Biscuit Pack",
+      brand: "Good Brand",
+      category: "Food",
+      image: "http://img.example.com/biscuit.jpg",
+      source: "api",
+    };
+
+    const savedMaster = {
+      _id: "master002",
+      barcode,
+      name: "Biscuit Pack",
+      brand: "Good Brand",
+      category: "Food",
+    };
+
+    mockMasterFindOne.mockResolvedValue(null);
+    mockMasterCreate.mockResolvedValue(savedMaster);
+
+    const result = await saveMasterProduct(productData);
+
+    expect(result).toEqual({ saved: true, product: savedMaster });
+    expect(mockMasterFindOne).toHaveBeenCalledWith({ barcode });
+    expect(mockMasterCreate).toHaveBeenCalled();
+  });
+
+  test("uses 'user-submitted' as default source when source is not provided", async () => {
+    const barcode = "1111111111111";
+    const productData = { barcode, name: "No Source Product" };
+    const savedMaster = { _id: "master003", barcode, name: "No Source Product" };
+
+    mockMasterFindOne.mockResolvedValue(null);
+    mockMasterCreate.mockResolvedValue(savedMaster);
+
+    await saveMasterProduct(productData);
+
+    const createCall = mockMasterCreate.mock.calls[0][0];
+    expect(createCall).toMatchObject({ barcode });
+    // source defaulted to 'user-submitted' via normalizeProduct
+  });
+
+  test("trims whitespace from barcode before lookup and save", async () => {
+    const barcode = "  9999999999999  ";
+    const trimmed = "9999999999999";
+    const savedMaster = { _id: "master004", barcode: trimmed };
+
+    mockMasterFindOne.mockResolvedValue(null);
+    mockMasterCreate.mockResolvedValue(savedMaster);
+
+    await saveMasterProduct({ barcode, name: "Trimmed Barcode Item" });
+
+    expect(mockMasterFindOne).toHaveBeenCalledWith({ barcode: trimmed });
+    const createCall = mockMasterCreate.mock.calls[0][0];
+    expect(createCall.barcode).toBe(trimmed);
+  });
+
+  test("propagates database errors from findOne", async () => {
+    const dbError = new Error("DB lookup failed");
+    mockMasterFindOne.mockRejectedValue(dbError);
+
+    let caughtError;
+    try {
+      await saveMasterProduct({ barcode: "1234567890123" });
+    } catch (error) {
+      caughtError = error;
+    }
+
+    expect(caughtError).toBe(dbError);
+  });
+
+  test("propagates database errors from create", async () => {
+    const dbError = new Error("DB write failed");
+    mockMasterFindOne.mockResolvedValue(null);
+    mockMasterCreate.mockRejectedValue(dbError);
+
+    let caughtError;
+    try {
+      await saveMasterProduct({ barcode: "1234567890123", name: "Item" });
     } catch (error) {
       caughtError = error;
     }
