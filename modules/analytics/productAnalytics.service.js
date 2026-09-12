@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { Product, Sale } from "../../models/index.js";
 import { ApiError } from "../../utils/ApiError.js";
 
@@ -31,8 +32,12 @@ const buildDateKeys = (startDate, endDate) => {
 };
 
 const getProductLastSoldMap = async (storeId) => {
+  const storeObjectId = mongoose.Types.ObjectId.isValid(storeId)
+    ? new mongoose.Types.ObjectId(storeId)
+    : storeId;
+
   const rows = await Sale.aggregate([
-    { $match: { store: storeId } },
+    { $match: { store: storeObjectId } },
     { $unwind: "$items" },
     {
       $group: {
