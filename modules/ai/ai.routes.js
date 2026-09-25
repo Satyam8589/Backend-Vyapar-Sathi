@@ -488,6 +488,11 @@ router.post(
   sseProxy
 );
 
+router.post(
+  /\/[^/]+\/clarify/,
+  sseProxy
+);
+
 
 // ============================================================================
 // All remaining AI requests
