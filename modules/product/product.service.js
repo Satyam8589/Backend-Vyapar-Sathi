@@ -104,6 +104,27 @@ export const getAllProducts = async (storeId) => {
     }
 };
 
+// Search active products within a store by name, barcode, or SKU.
+export const searchProducts = async (query, storeId) => {
+    if (!query?.trim()) return [];
+    if (!storeId) {
+        throw new ApiError("Store ID is required to search products", 400);
+    }
+
+    const escapedQuery = query.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const matcher = { $regex: escapedQuery, $options: 'i' };
+
+    return Product.find({
+        store: storeId,
+        isActive: true,
+        $or: [
+            { name: matcher },
+            { barcode: matcher },
+            { sku: matcher }
+        ]
+    }).populate('store', 'name');
+};
+
 //get product by barcode service (for auto-fill when scanning)
 export const getProductByBarcode = async (barcode, storeId) => {
     try {

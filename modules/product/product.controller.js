@@ -1,4 +1,4 @@
-import { addProduct, getProductById, updateProductById, deleteProductById, getAllProducts, getProductByBarcode } from "./product.service.js";
+import { addProduct, getProductById, updateProductById, deleteProductById, getAllProducts, searchProducts, getProductByBarcode } from "./product.service.js";
 import { resolveBarcode } from "./resolver.service.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 
@@ -54,6 +54,15 @@ export const getAllProductsController = async (req, res) => {
         const storeId = req.query.storeId;
         const products = await getAllProducts(storeId);
         res.status(200).json(new ApiResponse(products, "Products fetched successfully", 200));
+    } catch (error) {
+        res.status(error.statusCode || 500).json(new ApiResponse(null, error.message, error.statusCode || 500));
+    }
+};
+
+export const searchProductsController = async (req, res) => {
+    try {
+        const products = await searchProducts(req.query.query, req.query.storeId);
+        res.status(200).json(new ApiResponse(products, "Products searched successfully", 200));
     } catch (error) {
         res.status(error.statusCode || 500).json(new ApiResponse(null, error.message, error.statusCode || 500));
     }
