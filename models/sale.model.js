@@ -71,6 +71,25 @@ const saleSchema = new mongoose.Schema(
       min: 0,
       default: 0,
     },
+    subtotal: {
+      type: Number,
+      default: 0,
+    },
+    discount: {
+      type: {
+        type: String,
+        enum: ["fixed", "percent"],
+        default: "fixed",
+      },
+      value: {
+        type: Number,
+        default: 0,
+      },
+      amount: {
+        type: Number,
+        default: 0,
+      },
+    },
     paymentId: {
       type: String,
       trim: true,

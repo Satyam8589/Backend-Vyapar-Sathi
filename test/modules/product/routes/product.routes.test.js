@@ -73,6 +73,43 @@ const mockResolveProduct = jest.fn((req, res) => {
   });
 });
 
+const mockUploadProductImageController = jest.fn((req, res) => {
+  if (!req.file) {
+    return res.status(400).json({
+      message: "Image file is required",
+      data: null,
+    });
+  }
+
+  return res.status(200).json({
+    message: "Image uploaded successfully",
+    data: {
+      imageUrl: "https://cdn.example.com/product-image.jpg",
+      hasFile: Boolean(req.file),
+    },
+  });
+});
+
+const mockGetMasterProductController = jest.fn((req, res) => {
+  return res.status(200).json({
+    message: "Found in master catalog",
+    data: {
+      barcode: req.params.barcode,
+      name: "Master Product",
+    },
+  });
+});
+
+const mockSaveMasterProductController = jest.fn((req, res) => {
+  return res.status(201).json({
+    message: "Saved to master catalog",
+    data: {
+      barcode: req.body.barcode,
+      name: req.body.name,
+    },
+  });
+});
+
 const mockAuthMiddleware = jest.fn((req, _res, next) => {
   req.user = { _id: "507f1f77bcf86cd799439012", firebaseUid: "firebase-123" };
   next();
@@ -92,6 +129,9 @@ jest.unstable_mockModule(
     getAllProductsController: mockGetAllProductsController,
     getProductByBarcodeController: mockGetProductByBarcodeController,
     resolveProduct: mockResolveProduct,
+    uploadProductImageController: mockUploadProductImageController,
+    getMasterProductController: mockGetMasterProductController,
+    saveMasterProductController: mockSaveMasterProductController,
   }),
 );
 
@@ -314,6 +354,46 @@ describe("product.routes GET /:id", () => {
   });
 });
 
+describe("product.routes POST /upload-image", () => {
+  beforeEach(() => {
+    mockUploadProductImageController.mockClear();
+    mockAuthMiddleware.mockClear();
+    mockRequireUser.mockClear();
+  });
+
+  test("runs auth + requireUser and reaches upload controller", async () => {
+    const app = express();
+    app.use(express.json());
+    app.use("/products", productRouter);
+
+    const response = await request(app)
+      .post("/products/upload-image")
+      .attach("image", Buffer.from("fake-image-content"), "product.png");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({
+      message: "Image uploaded successfully",
+    });
+
+    expect(mockAuthMiddleware).toHaveBeenCalledTimes(1);
+    expect(mockRequireUser).toHaveBeenCalledTimes(1);
+    expect(mockUploadProductImageController).toHaveBeenCalledTimes(1);
+    expect(response.body.data.hasFile).toBe(true);
+  });
+
+  test("rejects requests without an image file", async () => {
+    const app = express();
+    app.use(express.json());
+    app.use("/products", productRouter);
+
+    const response = await request(app).post("/products/upload-image");
+
+    expect(response.status).toBe(400);
+    expect(response.body.message).toBe("Image file is required");
+    expect(mockUploadProductImageController).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("product.routes PUT /:id", () => {
   beforeEach(() => {
     mockUpdateProductController.mockClear();
@@ -473,5 +553,45 @@ describe("product.routes middleware protection", () => {
       expect(mockAuthMiddleware).toHaveBeenCalled();
       expect(mockRequireUser).toHaveBeenCalled();
     }
+  });
+});
+
+describe("product.routes master catalog routes", () => {
+  beforeEach(() => {
+    mockGetMasterProductController.mockClear();
+    mockSaveMasterProductController.mockClear();
+    mockAuthMiddleware.mockClear();
+    mockRequireUser.mockClear();
+  });
+
+  test("GET /master/:barcode reaches getMasterProductController", async () => {
+    const app = express();
+    app.use(express.json());
+    app.use("/products", productRouter);
+
+    const response = await request(app).get("/products/master/1234567890123");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({
+      message: "Found in master catalog",
+    });
+    expect(mockGetMasterProductController).toHaveBeenCalledTimes(1);
+  });
+
+  test("POST /master reaches saveMasterProductController", async () => {
+    const app = express();
+    app.use(express.json());
+    app.use("/products", productRouter);
+
+    const payload = { barcode: "9876543210987", name: "Test Master Product" };
+    const response = await request(app)
+      .post("/products/master")
+      .send(payload);
+
+    expect(response.status).toBe(201);
+    expect(response.body).toMatchObject({
+      message: "Saved to master catalog",
+    });
+    expect(mockSaveMasterProductController).toHaveBeenCalledTimes(1);
   });
 });

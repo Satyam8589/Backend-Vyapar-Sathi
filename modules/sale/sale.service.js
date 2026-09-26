@@ -107,7 +107,9 @@ export const materializeSaleFromCart = async (cartId, userId) => {
     user: cart.user,
     cart: cart._id,
     items,
-    totalAmount,
+    totalAmount: cart.totalPrice || items.reduce((sum, item) => sum + item.lineTotal, 0),
+    subtotal: cart.subtotal || totalAmount,
+    discount: cart.discount || { type: "fixed", value: 0, amount: 0 },
     paymentId: cart.paymentId || null,
     completedAt: isBackfillForCompletedCart ? cart.updatedAt || new Date() : new Date(),
   });

@@ -34,6 +34,25 @@ const cartSchema = new mongoose.Schema({
         required: true,
         default: 0
     },
+    subtotal: {
+        type: Number,
+        default: 0
+    },
+    discount: {
+        type: {
+            type: String,
+            enum: ['fixed', 'percent'],
+            default: 'fixed'
+        },
+        value: {
+            type: Number,
+            default: 0
+        },
+        amount: {
+            type: Number,
+            default: 0
+        }
+    },
     status: {
         type: String,
         enum: ['open', 'scanning', 'payment_pending', 'completed', 'cancelled'],

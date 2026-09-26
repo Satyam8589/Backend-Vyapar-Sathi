@@ -1,6 +1,7 @@
-import { addProduct, getProductById, updateProductById, deleteProductById, getAllProducts, searchProducts, getProductByBarcode } from "./product.service.js";
+import { addProduct, getProductById, updateProductById, deleteProductById, getAllProducts, getProductByBarcode, getMasterProduct, saveMasterProduct } from "./product.service.js";
 import { resolveBarcode } from "./resolver.service.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
+import { uploadBufferToCloudinary } from "../../utils/cloudinary.js";
 
 //create product controller
 export const addProductController = async (req, res) => {
@@ -109,5 +110,68 @@ export const getProductByBarcodeController = async (req, res) => {
         res.status(200).json(new ApiResponse(product, "Product found", 200));
     } catch (error) {
         res.status(error.statusCode || 500).json(new ApiResponse(null, error.message, error.statusCode || 500));
+    }
+};
+
+// Upload a product image to Cloudinary
+export const uploadProductImageController = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json(new ApiResponse(null, "Image file is required", 400));
+        }
+
+        const uploaded = await uploadBufferToCloudinary(req.file.buffer, {
+            folder: "vyapar-sathi/products",
+            resource_type: "image",
+        });
+
+        return res.status(200).json(
+            new ApiResponse(
+                {
+                    imageUrl: uploaded.secure_url,
+                    publicId: uploaded.public_id,
+                },
+                "Image uploaded successfully",
+                200,
+            ),
+        );
+    } catch (error) {
+        return res.status(error.statusCode || 500).json(
+            new ApiResponse(null, error.message || "Failed to upload image", error.statusCode || 500),
+        );
+    }
+};
+
+// GET /api/product/master/:barcode
+// Fetch a product from the global MasterProduct catalog (no external API call)
+export const getMasterProductController = async (req, res) => {
+    try {
+        const { barcode } = req.params;
+        const product = await getMasterProduct(barcode);
+
+        if (!product) {
+            return res.status(404).json(new ApiResponse(null, "Not found in master catalog", 404));
+        }
+
+        return res.status(200).json(new ApiResponse(product, "Found in master catalog", 200));
+    } catch (error) {
+        return res.status(error.statusCode || 500).json(new ApiResponse(null, error.message, error.statusCode || 500));
+    }
+};
+
+// POST /api/product/master
+// Save a product to the global MasterProduct catalog (idempotent — skips if barcode exists)
+export const saveMasterProductController = async (req, res) => {
+    try {
+        const result = await saveMasterProduct(req.body);
+
+        if (!result.saved) {
+            // Already in master catalog — return existing record
+            return res.status(200).json(new ApiResponse(result.product, "Already exists in master catalog", 200));
+        }
+
+        return res.status(201).json(new ApiResponse(result.product, "Saved to master catalog", 201));
+    } catch (error) {
+        return res.status(error.statusCode || 500).json(new ApiResponse(null, error.message, error.statusCode || 500));
     }
 };

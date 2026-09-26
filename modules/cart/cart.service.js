@@ -76,13 +76,17 @@ export const addItemToCart = async (cartId, productId, quantity = 1) => {
   return cart;
 };
 
-export const processPayment = async (cartId, paymentId) => {
+export const processPayment = async (cartId, paymentId, subtotal, discount, totalPrice) => {
   const cart = await Cart.findById(cartId);
   if (!cart) throw new ApiError(404, "Cart not found");
 
   cart.paymentId = paymentId;
   cart.paymentStatus = "paid";
   cart.status = "payment_pending"; // Waiting for owner confirmation
+
+  if (subtotal !== undefined) cart.subtotal = subtotal;
+  if (discount !== undefined) cart.discount = discount;
+  if (totalPrice !== undefined) cart.totalPrice = totalPrice;
 
   await cart.save();
   return cart;
@@ -128,30 +132,46 @@ export const getProductByBarcodeInCart = async (cartId, barcode) => {
   return product;
 };
 
-export const getBillHistory = async (storeId, limit = 50, page = 1) => {
+export const getBillHistory = async (storeId, limit = 50, page = 1, filters = {}) => {
   try {
     if (!storeId) {
       throw new ApiError(400, "Store ID is required");
     }
 
-    const skip = (page - 1) * limit;
-
-    const bills = await Cart.find({
+    const { date, month, year } = filters;
+    const query = {
       store: storeId,
       status: "completed",
       paymentStatus: "paid",
-    })
+    };
+
+    // Apply date filters
+    if (date) {
+      const start = new Date(date);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(date);
+      end.setHours(23, 59, 59, 999);
+      query.updatedAt = { $gte: start, $lte: end };
+    } else if (month && year) {
+      const start = new Date(year, month - 1, 1);
+      const end = new Date(year, month, 0, 23, 59, 59, 999);
+      query.updatedAt = { $gte: start, $lte: end };
+    } else if (year) {
+      const start = new Date(year, 0, 1);
+      const end = new Date(year, 11, 31, 23, 59, 59, 999);
+      query.updatedAt = { $gte: start, $lte: end };
+    }
+
+    const skip = (page - 1) * limit;
+
+    const bills = await Cart.find(query)
       .populate("user", "name email")
       .populate("products.product", "name barcode")
       .sort({ updatedAt: -1 })
       .limit(limit)
       .skip(skip);
 
-    const total = await Cart.countDocuments({
-      store: storeId,
-      status: "completed",
-      paymentStatus: "paid",
-    });
+    const total = await Cart.countDocuments(query);
 
     return {
       bills,

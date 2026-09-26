@@ -57,7 +57,10 @@ export const inviteEmployee = async (storeId, invitedByUserId, employeeData) => 
     roleName: role.name,
     ownerName: inviter?.name || "The owner",
     inviteToken,
-  }).catch((err) => console.error("Failed to send invite email:", err));
+  }).catch((err) => {
+    console.error("Failed to send invite email:", err);
+    console.log(`\n[FALLBACK] Copy this invite link for ${email}: ${process.env.FRONTEND_URL}/invite/${inviteToken}\n`);
+  });
 
   return employee;
 };
