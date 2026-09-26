@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { addProductController, getProductController, updateProductController, deleteProductController, getAllProductsController, getProductByBarcodeController, resolveProduct, uploadProductImageController, getMasterProductController, saveMasterProductController } from "./product.controller.js";
+import { addProductController, getProductController, updateProductController, deleteProductController, getAllProductsController, searchProductsController, getProductByBarcodeController, resolveProduct, uploadProductImageController, getMasterProductController, saveMasterProductController } from "./product.controller.js";
 import authMiddleware from "../../middlewares/auth.middleware.js";
 import requireUser from "../../middlewares/requireUser.middleware.js";
 import { uploadSingleProductImage } from "./product.upload.middleware.js";

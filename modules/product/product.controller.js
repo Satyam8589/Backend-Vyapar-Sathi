@@ -1,4 +1,4 @@
-import { addProduct, getProductById, updateProductById, deleteProductById, getAllProducts, getProductByBarcode, getMasterProduct, saveMasterProduct } from "./product.service.js";
+import { addProduct, getProductById, updateProductById, deleteProductById, getAllProducts, searchProducts, getProductByBarcode, getMasterProduct, saveMasterProduct } from "./product.service.js";
 import { resolveBarcode } from "./resolver.service.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 import { uploadBufferToCloudinary } from "../../utils/cloudinary.js";
