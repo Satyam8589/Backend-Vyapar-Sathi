@@ -31,6 +31,8 @@ router.route("/upload-image").post(handleProductImageUpload, uploadProductImageC
 
 router.route("/all").get(getAllProductsController);
 
+router.route("/search").get(searchProductsController);
+
 router.route("/barcode/:barcode").get(getProductByBarcodeController);
 
 router.route("/add_product").post(addProductController);
