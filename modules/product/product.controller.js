@@ -1,7 +1,18 @@
-import { addProduct, getProductById, updateProductById, deleteProductById, getAllProducts, searchProducts, getProductByBarcode, getMasterProduct, saveMasterProduct } from "./product.service.js";
+import { addProduct, getProductById, updateProductById, deleteProductById, getAllProducts, getProductByBarcode, getMasterProduct, saveMasterProduct, searchProductsInStore } from "./product.service.js";
 import { resolveBarcode } from "./resolver.service.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 import { uploadBufferToCloudinary } from "../../utils/cloudinary.js";
+
+// Search products controller
+export const searchProductsController = async (req, res) => {
+    try {
+        const { query, storeId } = req.query;
+        const products = await searchProductsInStore(query, storeId);
+        res.status(200).json(new ApiResponse(products, "Products searched successfully", 200));
+    } catch (error) {
+        res.status(error.statusCode || 500).json(new ApiResponse(null, error.message, error.statusCode || 500));
+    }
+};
 
 //create product controller
 export const addProductController = async (req, res) => {
@@ -11,7 +22,7 @@ export const addProductController = async (req, res) => {
             store: req.body.storeId || req.body.store,
             createdBy: req.user._id
         };
-        
+
         const product = await addProduct(productData);
         res.status(201).json(new ApiResponse(product, "Product created successfully", 201));
     } catch (error) {
@@ -102,11 +113,11 @@ export const getProductByBarcodeController = async (req, res) => {
         const { barcode } = req.params;
         const storeId = req.query.storeId;
         const product = await getProductByBarcode(barcode, storeId);
-        
+
         if (!product) {
             return res.status(404).json(new ApiResponse(null, "Product not found with this barcode", 404));
         }
-        
+
         res.status(200).json(new ApiResponse(product, "Product found", 200));
     } catch (error) {
         res.status(error.statusCode || 500).json(new ApiResponse(null, error.message, error.statusCode || 500));

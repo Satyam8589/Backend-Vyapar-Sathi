@@ -9,6 +9,8 @@ const mockGetProductByBarcode = jest.fn();
 const mockGetMasterProduct = jest.fn();
 const mockSaveMasterProduct = jest.fn();
 
+const mockSearchProductsInStore = jest.fn();
+
 jest.unstable_mockModule(
   "../../../../modules/product/product.service.js",
   () => ({
@@ -20,6 +22,7 @@ jest.unstable_mockModule(
     getProductByBarcode: mockGetProductByBarcode,
     getMasterProduct: mockGetMasterProduct,
     saveMasterProduct: mockSaveMasterProduct,
+    searchProductsInStore: mockSearchProductsInStore,
   }),
 );
 
