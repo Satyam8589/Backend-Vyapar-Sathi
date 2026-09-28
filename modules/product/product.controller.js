@@ -71,6 +71,15 @@ export const getAllProductsController = async (req, res) => {
     }
 };
 
+export const searchProductsController = async (req, res) => {
+    try {
+        const products = await searchProducts(req.query.query, req.query.storeId);
+        res.status(200).json(new ApiResponse(products, "Products searched successfully", 200));
+    } catch (error) {
+        res.status(error.statusCode || 500).json(new ApiResponse(null, error.message, error.statusCode || 500));
+    }
+};
+
 // Resolve a product globally by barcode (public, no auth required)
 // GET /api/products/resolve/:barcode
 export const resolveProduct = async (req, res) => {

@@ -105,6 +105,27 @@ export const getAllProducts = async (storeId) => {
     }
 };
 
+// Search active products within a store by name, barcode, or SKU.
+export const searchProducts = async (query, storeId) => {
+    if (!query?.trim()) return [];
+    if (!storeId) {
+        throw new ApiError("Store ID is required to search products", 400);
+    }
+
+    const escapedQuery = query.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const matcher = { $regex: escapedQuery, $options: 'i' };
+
+    return Product.find({
+        store: storeId,
+        isActive: true,
+        $or: [
+            { name: matcher },
+            { barcode: matcher },
+            { sku: matcher }
+        ]
+    }).populate('store', 'name');
+};
+
 //get product by barcode service (for auto-fill when scanning)
 export const getProductByBarcode = async (barcode, storeId) => {
     try {
@@ -118,40 +139,6 @@ export const getProductByBarcode = async (barcode, storeId) => {
         const query = { barcode, store: storeId, isActive: true };
         const product = await Product.findOne(query).populate('store', 'name');
         return product;
-    } catch (error) {
-        throw error;
-    }
-};
-
-// Search products in store service
-export const searchProductsInStore = async (queryTerm, storeId) => {
-    try {
-        if (!storeId) {
-            throw new ApiError("Store ID is required to search products", 400);
-        }
-        if (!queryTerm || queryTerm.trim() === "") {
-            return [];
-        }
-
-        const regex = new RegExp(queryTerm.trim().replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&"), "i");
-
-        const query = {
-            store: storeId,
-            isActive: true,
-            $or: [
-                { name: regex },
-                { barcode: regex },
-                { category: regex },
-                { brand: regex }
-            ]
-        };
-
-        const products = await Product.find(query)
-            .populate('store', 'name')
-            .populate('createdBy', 'name email')
-            .limit(50);
-
-        return products;
     } catch (error) {
         throw error;
     }
