@@ -16,9 +16,29 @@ const getMailCredentials = () => {
  */
 const createTransporter = () => {
   const { user, pass } = getMailCredentials();
+
+  if (!user || !pass) {
+    console.error(
+      "[MAILER CONFIG ERROR] Missing email credentials! Ensure GMAIL_USER/GMAIL_APP_PASSWORD or MAIL_USER/MAIL_PASS environment variables are added in your production deployment dashboard (e.g. Render Environment Settings)."
+    );
+  }
+
+  // Explicit Port 465 SSL connection optimized for cloud deployments (Render, Railway, AWS, DigitalOcean)
+  const host = process.env.MAIL_HOST || process.env.SMTP_HOST || "smtp.gmail.com";
+  const port = Number(process.env.MAIL_PORT || process.env.SMTP_PORT) || 465;
+  const secure = port === 465;
+
   return nodemailer.createTransport({
-    service: process.env.MAIL_SERVICE || "gmail",
+    host,
+    port,
+    secure, // true for 465 (SSL), false for 587
     auth: { user, pass },
+    connectionTimeout: 15000, // 15s connection timeout for cloud network stability
+    greetingTimeout: 15000,
+    socketTimeout: 20000,
+    tls: {
+      rejectUnauthorized: false, // Prevents cloud TLS handshake blocks
+    },
   });
 };
 
