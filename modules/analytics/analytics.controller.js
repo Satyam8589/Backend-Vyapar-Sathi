@@ -15,13 +15,25 @@ import {
 const MAX_RANGE_DAYS = 180;
 
 const parseDateRange = (query) => {
+  const rangeDays = { "7d": 7, "30d": 30, "90d": 90 };
+
+  if (query.range && !rangeDays[query.range]) {
+    throw new ApiError("Invalid range. Use 7d, 30d, or 90d.", 400);
+  }
+
+  if (query.range && (query.startDate || query.endDate)) {
+    throw new ApiError("Use range or startDate/endDate, not both.", 400);
+  }
+
   const endDate = query.endDate ? new Date(query.endDate) : new Date();
 
   if (Number.isNaN(endDate.getTime())) {
     throw new ApiError("Invalid endDate. Use ISO format (YYYY-MM-DD).", 400);
   }
 
-  const startDate = query.startDate
+  const startDate = query.range
+    ? new Date(endDate.getTime() - (rangeDays[query.range] - 1) * 24 * 60 * 60 * 1000)
+    : query.startDate
     ? new Date(query.startDate)
     : new Date(endDate.getTime() - 29 * 24 * 60 * 60 * 1000);
 
@@ -62,6 +74,19 @@ const parseLimit = (value, fallback = 10, max = 50) => {
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed <= 0 || parsed > max) {
     throw new ApiError(`Invalid limit. Use an integer between 1 and ${max}.`, 400);
+  }
+
+  return parsed;
+};
+
+const parsePage = (value) => {
+  if (!value) {
+    return 1;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new ApiError("Invalid page. Use a positive integer.", 400);
   }
 
   return parsed;
@@ -171,11 +196,14 @@ export const getProductOverviewController = async (req, res) => {
     validateObjectId(req.params.storeId, "storeId");
     validateObjectId(req.params.productId, "productId");
     const range = parseDateRange(req.query);
+    const page = parsePage(req.query.page);
+    const limit = parseLimit(req.query.limit, 10, 100);
 
     const overview = await getProductOverview(
       req.params.storeId,
       req.params.productId,
-      range
+      range,
+      { page, limit }
     );
 
     res
