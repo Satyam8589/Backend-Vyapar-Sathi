@@ -57,8 +57,11 @@ export const buildCronExpression = ({
  * @returns {number} Delay in milliseconds (minimum 0)
  */
 export const calculateOneTimeDelay = (runAt) => {
+    if (!runAt) return 0;
     const targetDate = new Date(runAt);
+    if (isNaN(targetDate.getTime())) return 0;
     const now = new Date();
     const delay = targetDate.getTime() - now.getTime();
     return Math.max(delay, 0);
 };
+
