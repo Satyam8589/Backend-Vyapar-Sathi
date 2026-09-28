@@ -1,4 +1,6 @@
 import { Router } from "express";
+import dotenv from "dotenv";
+dotenv.config();
 import { createProxyMiddleware } from "http-proxy-middleware";
 
 import authMiddleware from "../../middlewares/auth.middleware.js";
