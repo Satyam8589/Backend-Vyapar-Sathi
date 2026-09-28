@@ -5,6 +5,7 @@ import mongoose from "mongoose";
 
 import router from "./router/index.js";
 import connectDB from "./config/db.js";
+import redisClient from "./config/redis.js";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -12,6 +13,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 import emailRoutes from "./modules/email/email.routes.js";
+import queueRoutes from "./router/queue.routes.js";
+import automationRoutes from "./modules/automation/automation.routes.js";
+import "./workers/expressWorker.js";
 
 
 const app = express();
@@ -93,17 +97,21 @@ app.get("/health", async (req, res) => {
 
     // DB ping (very important)
     const dbState = mongoose.connection.readyState === 1;
+    const redisState = redisClient && redisClient.status === "ready";
 
     if (!dbState) {
       return res.status(500).json({
         status: "unhealthy",
         db: "disconnected",
+        redis: redisState ? "connected" : "disconnected",
       });
     }
 
     res.status(200).json({
       status: "healthy",
       uptime,
+      db: "connected",
+      redis: redisState ? "connected" : "disconnected",
       timestamp: Date.now(),
     });
 
@@ -113,6 +121,8 @@ app.get("/health", async (req, res) => {
 });
 
 app.use("/api/email", emailRoutes);
+app.use("/api/queue", queueRoutes);
+app.use("/api/automations", automationRoutes);
 
 app.use("/api", router);
 
