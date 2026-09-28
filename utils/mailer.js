@@ -1,4 +1,13 @@
 import nodemailer from "nodemailer";
+import dns from "dns";
+
+/**
+ * Custom DNS lookup to strictly enforce IPv4 resolution.
+ * Prevents ENETUNREACH errors on cloud servers (e.g. Render, Railway, AWS) that lack outbound IPv6 routing.
+ */
+const customIPv4Lookup = (hostname, options, callback) => {
+  return dns.lookup(hostname, { family: 4, hints: dns.ADDRCONFIG }, callback);
+};
 
 /**
  * Retrieve mail credentials supporting MAIL_USER/MAIL_PASS, GMAIL_USER/GMAIL_APP_PASSWORD, or SMTP env vars.
@@ -32,7 +41,8 @@ const createTransporter = () => {
     host,
     port,
     secure, // true for 465 (SSL), false for 587
-    family: 4, // Force IPv4 resolution to prevent ENETUNREACH error on Render/Cloud servers
+    lookup: customIPv4Lookup, // Forces IPv4 resolution to prevent ENETUNREACH IPv6 error on Render/Cloud servers
+    family: 4,
     auth: { user, pass },
     connectionTimeout: 15000, // 15s connection timeout for cloud network stability
     greetingTimeout: 15000,
@@ -48,7 +58,7 @@ const createTransporter = () => {
  * Retries up to `maxRetries` times with a `delayMs` pause between attempts.
  * Default: Max 3 retries (4 total attempts) with a 1-minute (60,000ms) interval between attempts.
  */
-export const sendMailWithRetry = async (mailOptions, maxRetries = 3, delayMs = 60000) => {
+export const sendMailWithRetry = async (mailOptions, maxRetries = 3, delayMs = 3000) => {
   let attempt = 0;
   while (attempt <= maxRetries) {
     try {
