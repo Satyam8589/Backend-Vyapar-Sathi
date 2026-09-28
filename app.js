@@ -11,6 +11,8 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+import emailRoutes from "./modules/email/email.routes.js";
+
 
 const app = express();
 
@@ -109,6 +111,8 @@ app.get("/health", async (req, res) => {
     res.status(500).json({ status: "error", error: err.message });
   }
 });
+
+app.use("/api/email", emailRoutes);
 
 app.use("/api", router);
 
