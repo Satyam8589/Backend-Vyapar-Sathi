@@ -123,6 +123,40 @@ export const getProductByBarcode = async (barcode, storeId) => {
     }
 };
 
+// Search products in store service
+export const searchProductsInStore = async (queryTerm, storeId) => {
+    try {
+        if (!storeId) {
+            throw new ApiError("Store ID is required to search products", 400);
+        }
+        if (!queryTerm || queryTerm.trim() === "") {
+            return [];
+        }
+
+        const regex = new RegExp(queryTerm.trim().replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&"), "i");
+
+        const query = {
+            store: storeId,
+            isActive: true,
+            $or: [
+                { name: regex },
+                { barcode: regex },
+                { category: regex },
+                { brand: regex }
+            ]
+        };
+
+        const products = await Product.find(query)
+            .populate('store', 'name')
+            .populate('createdBy', 'name email')
+            .limit(50);
+
+        return products;
+    } catch (error) {
+        throw error;
+    }
+};
+
 /**
  * Lookup a barcode in the MasterProduct (global catalog) without hitting external APIs.
  * Returns the MasterProduct document or null if not found.
@@ -171,4 +205,4 @@ export const saveMasterProduct = async (productData) => {
 
     const master = await MasterProduct.create({ barcode, ...normalized });
     return { saved: true, product: master };
-};
+};

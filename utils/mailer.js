@@ -1,18 +1,59 @@
 import nodemailer from "nodemailer";
 
 /**
+ * Retrieve mail credentials supporting MAIL_USER/MAIL_PASS, GMAIL_USER/GMAIL_APP_PASSWORD, or SMTP env vars.
+ */
+const getMailCredentials = () => {
+  const user = (process.env.MAIL_USER || process.env.GMAIL_USER || process.env.SMTP_USER || "").trim();
+  const pass = (process.env.MAIL_PASS || process.env.GMAIL_APP_PASSWORD || process.env.SMTP_PASS || "").trim();
+  return { user, pass };
+};
+
+/**
  * Create a fresh Nodemailer transporter on-demand so that
  * env vars are always read AFTER dotenv.config() has run.
  * Supports Gmail, Sendgrid, or any SMTP provider.
  */
-const createTransporter = () =>
-  nodemailer.createTransport({
+const createTransporter = () => {
+  const { user, pass } = getMailCredentials();
+  return nodemailer.createTransport({
     service: process.env.MAIL_SERVICE || "gmail",
-    auth: {
-      user: process.env.MAIL_USER,
-      pass: process.env.MAIL_PASS,
-    },
+    auth: { user, pass },
   });
+};
+
+/**
+ * Helper function to send email with automatic retry mechanism.
+ * Retries up to `maxRetries` times with a `delayMs` pause between attempts.
+ * Default: Max 3 retries (4 total attempts) with a 1-minute (60,000ms) interval between attempts.
+ */
+export const sendMailWithRetry = async (mailOptions, maxRetries = 3, delayMs = 60000) => {
+  let attempt = 0;
+  while (attempt <= maxRetries) {
+    try {
+      const transporter = createTransporter();
+      const info = await transporter.sendMail(mailOptions);
+      if (attempt > 0) {
+        console.log(`[MAILER] Email successfully sent to ${mailOptions.to} on retry attempt #${attempt}`);
+      }
+      return info;
+    } catch (err) {
+      attempt++;
+      if (attempt <= maxRetries) {
+        console.warn(
+          `[MAILER WARNING] Failed to send email to ${mailOptions.to} (Attempt ${attempt}/${maxRetries + 1}): ${err.message}. Retrying in ${delayMs / 1000}s...`
+        );
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      } else {
+        console.error(
+          `[MAILER ERROR] Max retries (${maxRetries}) reached. Could not send email to ${mailOptions.to}:`,
+          err.message
+        );
+        throw err;
+      }
+    }
+  }
+};
 
 /**
  * Send a store employee invitation email with the accept link.
@@ -23,8 +64,14 @@ const createTransporter = () =>
  * @param {string} opts.roleName   - Role being assigned
  * @param {string} opts.ownerName  - Owner's name
  * @param {string} opts.inviteToken - The unique token
+ * @param {object} [retryOpts] - Custom retry options { maxRetries, delayMs }
  */
-export const sendInviteEmail = async (toEmail, { storeName, roleName, ownerName, inviteToken }) => {
+export const sendInviteEmail = async (
+  toEmail,
+  { storeName, roleName, ownerName, inviteToken },
+  retryOpts = {}
+) => {
+  const { user } = getMailCredentials();
   const inviteUrl = `${process.env.FRONTEND_URL}/invite/${inviteToken}`;
 
   const html = `
@@ -73,10 +120,154 @@ export const sendInviteEmail = async (toEmail, { storeName, roleName, ownerName,
     </html>
   `;
 
-  await createTransporter().sendMail({
-    from: `"Vyapar Sathi" <${process.env.MAIL_USER}>`,
-    to: toEmail,
-    subject: `You're invited to join ${storeName} on Vyapar Sathi`,
-    html,
+  const maxRetries = retryOpts.maxRetries ?? 3;
+  const delayMs = retryOpts.delayMs ?? 60000;
+
+  await sendMailWithRetry(
+    {
+      from: `"Vyapar Sathi" <${user}>`,
+      to: toEmail,
+      subject: `You're invited to join ${storeName} on Vyapar Sathi`,
+      html,
+    },
+    maxRetries,
+    delayMs
+  );
+};
+
+/**
+ * Send a Low Stock Warning Email to the Store Owner when products fall below threshold.
+ * Retries up to maxRetries (default 3) at delayMs (default 60,000ms = 1 min) intervals.
+ *
+ * @param {string} toEmail - Recipient email (Store Email or Owner Email)
+ * @param {object} opts
+ * @param {string} opts.storeName - Name of the store
+ * @param {string} opts.storeId - Store ID for dashboard link
+ * @param {number} [opts.lowStockThreshold=10] - Threshold set during store creation
+ * @param {Array} opts.lowStockProducts - List of low stock product objects
+ * @param {object} [retryOpts] - Custom retry options { maxRetries, delayMs }
+ */
+export const sendLowStockNotificationEmail = async (
+  toEmail,
+  { storeName, storeId, lowStockThreshold = 10, lowStockProducts = [] },
+  retryOpts = {}
+) => {
+  if (!toEmail || !lowStockProducts || lowStockProducts.length === 0) return;
+
+  const { user } = getMailCredentials();
+  const dashboardUrl = `${process.env.FRONTEND_URL || "http://localhost:3000"}/storeDashboard/${storeId}`;
+  const formattedDate = new Date().toLocaleString("en-IN", {
+    dateStyle: "medium",
+    timeStyle: "short",
   });
+
+  const productCards = lowStockProducts
+    .map(
+      (p, index) => `
+    <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; padding: 18px 20px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+      <div style="border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-size: 15px; font-weight: 800; color: #0f172a;">📦 Product #${index + 1}: ${p.name}</span>
+        <span style="display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; ${
+          p.currentStock === 0
+            ? "background: #fee2e2; color: #dc2626;"
+            : "background: #fef3c7; color: #d97706;"
+        }">
+          ${p.currentStock} ${p.unit || "pcs"} ${p.currentStock === 0 ? "❌ OUT OF STOCK" : "⚠️ LOW STOCK"}
+        </span>
+      </div>
+      <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+        <tbody>
+          <tr>
+            <td style="padding: 6px 0; color: #64748b; font-weight: 600; width: 35%;">Brand:</td>
+            <td style="padding: 6px 0; color: #0f172a; font-weight: 700;">${p.brand || "-"}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #64748b; font-weight: 600;">Barcode / SKU:</td>
+            <td style="padding: 6px 0; color: #2563eb; font-family: 'Courier New', Courier, monospace; font-weight: 700;">${p.barcode || "-"}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #64748b; font-weight: 600;">Category:</td>
+            <td style="padding: 6px 0; color: #0f172a;"><span style="background: #e2e8f0; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600;">${p.category || "General"}</span></td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #64748b; font-weight: 600;">Selling Price:</td>
+            <td style="padding: 6px 0; color: #0f172a; font-weight: 800; font-size: 14px;">₹${Number(p.price || 0).toFixed(2)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  `
+    )
+    .join("");
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f1f5f9; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 24px auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.08); border: 1px solid #cbd5e1; }
+        .header { background: linear-gradient(135deg, #dc2626 0%, #ea580c 100%); padding: 28px; text-align: center; color: #ffffff; }
+        .header h1 { margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.5px; }
+        .header p { margin: 6px 0 0 0; opacity: 0.92; font-size: 13px; font-weight: 500; }
+        .body { padding: 28px; }
+        .store-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px 20px; margin-bottom: 24px; }
+        .store-title { font-size: 18px; font-weight: 800; color: #0f172a; margin: 0 0 10px 0; }
+        .alert-banner { background: #fef2f2; border-left: 4px solid #ef4444; padding: 14px 16px; border-radius: 8px; margin-bottom: 24px; font-size: 13px; color: #991b1b; font-weight: 600; }
+        .footer { padding: 20px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9; background: #f8fafc; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>⚠️ Low Stock Alert Notification</h1>
+          <p>Vyapar Sathi Automated Inventory Monitor</p>
+        </div>
+        <div class="body">
+          
+          <!-- Store Details Card -->
+          <div class="store-card">
+            <h2 class="store-title">🏪 Store: ${storeName}</h2>
+            <div style="font-size: 13px; color: #475569; line-height: 1.6;">
+              <p style="margin: 4px 0;">📧 <strong>Owner Email:</strong> ${toEmail}</p>
+              <p style="margin: 4px 0;">🕒 <strong>Alert Time:</strong> ${formattedDate}</p>
+              <p style="margin: 4px 0;">🎯 <strong>Low Stock Threshold Set:</strong> ${lowStockThreshold} units</p>
+              <p style="margin: 4px 0;">📦 <strong>Affected Products Count:</strong> <span style="color: #dc2626; font-weight: 800;">${lowStockProducts.length} Product(s)</span></p>
+            </div>
+          </div>
+
+          <div class="alert-banner">
+            Attention Shop Owner! The following product(s) in <strong>${storeName}</strong> have fallen below your threshold of <strong>${lowStockThreshold} units</strong> after a recent purchase. Please review and restock as soon as possible.
+          </div>
+
+          <!-- Product Details Column Cards -->
+          ${productCards}
+        </div>
+        <div class="footer">
+          This is an automated low stock alert generated for <strong>${storeName}</strong>.<br/>
+          © ${new Date().getFullYear()} Vyapar Sathi Inventory Management System
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  const maxRetries = retryOpts.maxRetries ?? 3;
+  const delayMs = retryOpts.delayMs ?? 60000;
+
+  try {
+    await sendMailWithRetry(
+      {
+        from: `"Vyapar Sathi Alert" <${user}>`,
+        to: toEmail,
+        subject: `⚠️ Low Stock Alert: ${lowStockProducts.length} Product(s) Need Restocking in ${storeName}`,
+        html,
+      },
+      maxRetries,
+      delayMs
+    );
+  } catch (err) {
+    console.error(`[MAILER ERROR] Failed to send low stock alert email to ${toEmail}:`, err.message);
+  }
 };

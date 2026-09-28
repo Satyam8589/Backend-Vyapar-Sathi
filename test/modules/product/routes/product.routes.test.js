@@ -119,6 +119,13 @@ const mockRequireUser = jest.fn((_req, _res, next) => {
   next();
 });
 
+const mockSearchProductsController = jest.fn((req, res) => {
+  return res.status(200).json({
+    message: "Products searched successfully",
+    data: [{ _id: "1", name: "Searched Product" }],
+  });
+});
+
 jest.unstable_mockModule(
   "../../../../modules/product/product.controller.js",
   () => ({
@@ -132,6 +139,7 @@ jest.unstable_mockModule(
     uploadProductImageController: mockUploadProductImageController,
     getMasterProductController: mockGetMasterProductController,
     saveMasterProductController: mockSaveMasterProductController,
+    searchProductsController: mockSearchProductsController,
   }),
 );
 

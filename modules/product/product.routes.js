@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { addProductController, getProductController, updateProductController, deleteProductController, getAllProductsController, getProductByBarcodeController, resolveProduct, uploadProductImageController, getMasterProductController, saveMasterProductController } from "./product.controller.js";
+import { addProductController, getProductController, updateProductController, deleteProductController, getAllProductsController, getProductByBarcodeController, resolveProduct, uploadProductImageController, getMasterProductController, saveMasterProductController, searchProductsController } from "./product.controller.js";
 import { analyzeBulkHeadersController, executeBulkUploadController } from "./bulkUpload.controller.js";
 import authMiddleware from "../../middlewares/auth.middleware.js";
 import requireUser from "../../middlewares/requireUser.middleware.js";
@@ -30,6 +30,8 @@ router.use(requireUser);
 router.route("/upload-image").post(handleProductImageUpload, uploadProductImageController);
 
 router.route("/all").get(getAllProductsController);
+
+router.route("/search").get(searchProductsController);
 
 router.route("/barcode/:barcode").get(getProductByBarcodeController);
 

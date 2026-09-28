@@ -1,6 +1,7 @@
-import { Product, Sale } from "../../models/index.js";
+import { Product, Sale, Store, Inventory } from "../../models/index.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { assertCartAccess } from "../store/storeAccess.service.js";
+import { sendLowStockNotificationEmail } from "../../utils/mailer.js";
 
 const buildSaleItems = (cart) =>
   cart.products.map((item) => {
@@ -45,9 +46,86 @@ const ensureInventoryAvailability = async (cart) => {
 
 const decrementInventory = async (cart) => {
   for (const item of cart.products) {
-    await Product.findByIdAndUpdate(item.product._id, {
-      $inc: { quantity: -item.quantity },
-    });
+    const productId = item.product?._id || item.product;
+    const qtyToSubtract = Number(item.quantity || 0);
+
+    let updatedProd = null;
+    if (Product && typeof Product.findByIdAndUpdate === "function") {
+      updatedProd = await Product.findByIdAndUpdate(
+        productId,
+        { $inc: { quantity: -qtyToSubtract } },
+        { new: true }
+      );
+    }
+
+    // Sync Inventory model if present
+    if (Inventory && typeof Inventory.findOne === "function") {
+      try {
+        const inv = await Inventory.findOne({ store: cart.store, product: productId });
+        if (inv) {
+          inv.quantity = Math.max(0, updatedProd?.quantity ?? (inv.quantity - qtyToSubtract));
+          await inv.save();
+        }
+      } catch (invErr) {
+        console.warn("[SALE SERVICE] Could not update Inventory record:", invErr.message);
+      }
+    }
+  }
+};
+
+const checkAndSendLowStockAlerts = async (cart) => {
+  try {
+    if (!cart?.store || !cart?.products?.length) return;
+    if (!Store || typeof Store.findById !== "function") return;
+
+    const storeQuery = Store.findById(cart.store);
+    const store = storeQuery && typeof storeQuery.populate === "function"
+      ? await storeQuery.populate("owner")
+      : await storeQuery;
+
+    if (!store) return;
+
+    const threshold = Number(store.settings?.lowStockThreshold ?? 10);
+    const recipientEmail = store.email || store.owner?.email;
+
+    if (!recipientEmail) {
+      console.warn(`[LOW STOCK MAIL] Store ${store._id} (${store.name}) has no email address configured.`);
+      return;
+    }
+
+    const productIds = cart.products
+      .map((item) => item.product?._id || item.product)
+      .filter(Boolean);
+
+    if (!productIds.length || !Product || typeof Product.find !== "function") return;
+
+    const updatedProducts = await Product.find({ _id: { $in: productIds } });
+
+    const lowStockProducts = updatedProducts
+      .filter((p) => typeof p.quantity === "number" && p.quantity <= threshold)
+      .map((p) => ({
+        name: p.name,
+        brand: p.brand || "-",
+        barcode: p.barcode || "-",
+        category: p.category || "General",
+        currentStock: p.quantity,
+        unit: p.unit || "pcs",
+        price: p.price,
+      }));
+
+    if (lowStockProducts.length > 0) {
+      console.log(
+        `[LOW STOCK MAIL] Triggering mail alert for store "${store.name}" to ${recipientEmail} (${lowStockProducts.length} low stock item(s))`
+      );
+      await sendLowStockNotificationEmail(recipientEmail, {
+        storeName: store.name,
+        storeId: store._id.toString(),
+        lowStockThreshold: threshold,
+        lowStockProducts,
+      });
+    }
+  } catch (err) {
+    console.error("[LOW STOCK MAIL TRIGGER ERROR]", err?.message || err);
   }
 };
 
@@ -100,6 +178,13 @@ export const materializeSaleFromCart = async (cartId, userId) => {
 
   if (!isBackfillForCompletedCart) {
     await decrementInventory(cart);
+
+    // Fire low-stock check asynchronously in background via setImmediate (100% decoupled from billing)
+    setImmediate(() => {
+      checkAndSendLowStockAlerts(cart).catch((err) =>
+        console.error("[LOW STOCK TRIGGER EXCEPTION]", err)
+      );
+    });
   }
 
   const sale = await Sale.create({

@@ -1,18 +1,33 @@
 import { jest } from "@jest/globals";
 
 const mockProductFindByIdAndUpdate = jest.fn();
+const mockProductFind = jest.fn();
 const mockSaleFindOne = jest.fn();
 const mockSaleCreate = jest.fn();
+const mockStoreFindById = jest.fn();
+const mockInventoryFindOne = jest.fn();
 const mockAssertCartAccess = jest.fn();
+const mockSendLowStockNotificationEmail = jest.fn();
 
 jest.unstable_mockModule("../../../models/index.js", () => ({
   Product: {
     findByIdAndUpdate: mockProductFindByIdAndUpdate,
+    find: mockProductFind,
   },
   Sale: {
     findOne: mockSaleFindOne,
     create: mockSaleCreate,
   },
+  Store: {
+    findById: mockStoreFindById,
+  },
+  Inventory: {
+    findOne: mockInventoryFindOne,
+  },
+}));
+
+jest.unstable_mockModule("../../../utils/mailer.js", () => ({
+  sendLowStockNotificationEmail: mockSendLowStockNotificationEmail,
 }));
 
 jest.unstable_mockModule(
@@ -56,9 +71,13 @@ const buildCart = (overrides = {}) => ({
 describe("sale.service.materializeSaleFromCart", () => {
   beforeEach(() => {
     mockProductFindByIdAndUpdate.mockReset();
+    mockProductFind.mockReset();
     mockSaleFindOne.mockReset();
     mockSaleCreate.mockReset();
+    mockStoreFindById.mockReset();
+    mockInventoryFindOne.mockReset();
     mockAssertCartAccess.mockReset();
+    mockSendLowStockNotificationEmail.mockReset();
   });
 
   test("creates a sale snapshot, decrements inventory, and completes the cart for a paid live cart", async () => {
@@ -77,9 +96,11 @@ describe("sale.service.materializeSaleFromCart", () => {
       "products.product"
     );
     expect(mockProductFindByIdAndUpdate).toHaveBeenCalledTimes(1);
-    expect(mockProductFindByIdAndUpdate).toHaveBeenCalledWith("product-1", {
-      $inc: { quantity: -2 },
-    });
+    expect(mockProductFindByIdAndUpdate).toHaveBeenCalledWith(
+      "product-1",
+      { $inc: { quantity: -2 } },
+      { new: true }
+    );
     expect(mockSaleCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         store: "store-1",
@@ -106,6 +127,56 @@ describe("sale.service.materializeSaleFromCart", () => {
       cart,
       inventoryAdjusted: true,
       saleCreated: true,
+    });
+  });
+
+  test("triggers low stock notification email when product quantity falls below store threshold", async () => {
+    const cart = buildCart();
+    const createdSale = { _id: "sale-lowstock" };
+    const mockStore = {
+      _id: "store-1",
+      name: "My Grocery Shop",
+      email: "owner@groceryshop.com",
+      settings: { lowStockThreshold: 5 },
+    };
+
+    mockAssertCartAccess.mockResolvedValue(cart);
+    mockSaleFindOne.mockResolvedValue(null);
+    mockSaleCreate.mockResolvedValue(createdSale);
+    mockStoreFindById.mockReturnValue({
+      populate: jest.fn().mockResolvedValue(mockStore),
+    });
+    mockProductFind.mockResolvedValue([
+      {
+        _id: "product-1",
+        name: "Rice Bag",
+        barcode: "1234567890",
+        category: "Grocery",
+        quantity: 3, // Below threshold of 5!
+        unit: "Pcs",
+        price: 70,
+      },
+    ]);
+
+    await materializeSaleFromCart("cart-1", "user-1");
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(mockStoreFindById).toHaveBeenCalledWith("store-1");
+    expect(mockSendLowStockNotificationEmail).toHaveBeenCalledWith("owner@groceryshop.com", {
+      storeName: "My Grocery Shop",
+      storeId: "store-1",
+      lowStockThreshold: 5,
+      lowStockProducts: [
+        {
+          name: "Rice Bag",
+          brand: "-",
+          barcode: "1234567890",
+          category: "Grocery",
+          currentStock: 3,
+          unit: "Pcs",
+          price: 70,
+        },
+      ],
     });
   });
 
