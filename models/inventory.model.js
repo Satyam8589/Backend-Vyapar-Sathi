@@ -61,10 +61,9 @@ inventorySchema.index({ product: 1, isActive: 1 });
 inventorySchema.index({ store: 1, isLowStock: 1 });
 inventorySchema.index({ store: 1, isOutOfStock: 1 });
 
-inventorySchema.pre('save', function(next) {
+inventorySchema.pre('save', function() {
     this.isOutOfStock = this.quantity === 0;
-    this.isLowStock = !this.isOutOfStock && this.quantity <= this.minStockLevel;
-    next();
+    this.isLowStock = !this.isOutOfStock && this.quantity <= (this.minStockLevel || 10);
 });
 
 inventorySchema.methods.updateStock = function(quantity, operation = 'add') {
