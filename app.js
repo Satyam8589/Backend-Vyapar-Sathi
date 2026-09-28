@@ -41,10 +41,13 @@ app.use(
   }),
 );
 
-// Global rate limiter - 100 requests per 15 minutes per IP
+const rateLimitingEnabled = process.env.NODE_ENV === "production";
+
+// Keep local development usable while retaining protection in deployed environments.
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100,
+  skip: () => !rateLimitingEnabled,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -53,10 +56,11 @@ const globalLimiter = rateLimit({
   },
 });
 
-// Strict limiter for auth routes - 10 requests per 15 minutes per IP
+// Strict limiter for auth routes - 10 requests per 15 minutes per IP in production.
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
+  skip: () => !rateLimitingEnabled,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
