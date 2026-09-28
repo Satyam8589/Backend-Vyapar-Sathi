@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { addProductController, getProductController, updateProductController, deleteProductController, getAllProductsController, searchProductsController, getProductByBarcodeController, resolveProduct, uploadProductImageController, getMasterProductController, saveMasterProductController } from "./product.controller.js";
+import { addProductController, getProductController, updateProductController, deleteProductController, getAllProductsController, getProductByBarcodeController, resolveProduct, uploadProductImageController, getMasterProductController, saveMasterProductController } from "./product.controller.js";
+import { analyzeBulkHeadersController, executeBulkUploadController } from "./bulkUpload.controller.js";
 import authMiddleware from "../../middlewares/auth.middleware.js";
 import requireUser from "../../middlewares/requireUser.middleware.js";
 import { uploadSingleProductImage } from "./product.upload.middleware.js";
@@ -35,6 +36,10 @@ router.route("/search").get(searchProductsController);
 router.route("/barcode/:barcode").get(getProductByBarcodeController);
 
 router.route("/add_product").post(addProductController);
+
+// Bulk upload endpoints (AI column analysis & execution)
+router.route("/bulk-analyze").post(analyzeBulkHeadersController);
+router.route("/bulk-execute").post(executeBulkUploadController);
 
 // ─── Master Product catalog (authenticated) ─────────────────────────────────
 // Lookup a barcode in the shared catalog without calling external APIs

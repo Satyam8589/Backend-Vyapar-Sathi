@@ -67,15 +67,15 @@ app.use(globalLimiter);
 app.use("/api/auth", authLimiter);
 
 // Request logging middleware
-app.use((req, res, next) => {
-  const timestamp = new Date().toISOString();
-  console.log(`\n[${timestamp}] ${req.method} ${req.originalUrl}`);
-  console.log(`[REQUEST] IP: ${req.ip || req.connection.remoteAddress}`);
-  if (req.body && Object.keys(req.body).length > 0) {
-    console.log(`[REQUEST] Body:`, JSON.stringify(req.body, null, 2));
-  }
-  next();
-});
+// app.use((req, res, next) => {
+//   const timestamp = new Date().toISOString();
+//   console.log(`\n[${timestamp}] ${req.method} ${req.originalUrl}`);
+//   console.log(`[REQUEST] IP: ${req.ip || req.connection.remoteAddress}`);
+//   if (req.body && Object.keys(req.body).length > 0) {
+//     console.log(`[REQUEST] Body:`, JSON.stringify(req.body, null, 2));
+//   }
+//   next();
+// });
 
 // Serve static files from public directory
 app.use(express.static(path.join(__dirname, "public")));
