@@ -126,6 +126,8 @@ export const searchProducts = async (query, storeId) => {
     }).populate('store', 'name');
 };
 
+export const searchProductsInStore = searchProducts;
+
 //get product by barcode service (for auto-fill when scanning)
 export const getProductByBarcode = async (barcode, storeId) => {
     try {
