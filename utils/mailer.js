@@ -32,6 +32,7 @@ const createTransporter = () => {
     host,
     port,
     secure, // true for 465 (SSL), false for 587
+    family: 4, // Force IPv4 resolution to prevent ENETUNREACH error on Render/Cloud servers
     auth: { user, pass },
     connectionTimeout: 15000, // 15s connection timeout for cloud network stability
     greetingTimeout: 15000,
