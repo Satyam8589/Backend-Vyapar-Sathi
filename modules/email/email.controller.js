@@ -22,7 +22,7 @@ export const sendEmail = async (req, res) => {
     }
 
     await transporter.sendMail({
-      from: process.env.GMAIL_USER,
+      from: process.env.MAIL_FROM_ADDRESS,
       to,
       subject,
       ...(text ? { text } : {}),
@@ -55,7 +55,7 @@ export const sendTestEmail = async (req, res) => {
     }
 
     await transporter.sendMail({
-      from: process.env.GMAIL_USER,
+      from: process.env.MAIL_FROM_ADDRESS,
       to,
       subject: "VyaparSathi Test Email",
       text: "Hello! This is a test email from VyaparSathi.",
