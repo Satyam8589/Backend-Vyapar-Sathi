@@ -223,16 +223,12 @@ export const sendLowStockNotificationEmail = async (
       <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
         <tbody>
           <tr>
-            <td style="padding: 6px 0; color: #64748b; font-weight: 600; width: 35%;">Brand:</td>
-            <td style="padding: 6px 0; color: #0f172a; font-weight: 700;">${p.brand || "-"}</td>
+            <td style="padding: 6px 0; color: #64748b; font-weight: 600; width: 35%;">Category:</td>
+            <td style="padding: 6px 0; color: #0f172a;"><span style="background: #e2e8f0; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600;">${p.category || "General"}</span></td>
           </tr>
           <tr>
             <td style="padding: 6px 0; color: #64748b; font-weight: 600;">Barcode / SKU:</td>
             <td style="padding: 6px 0; color: #2563eb; font-family: 'Courier New', Courier, monospace; font-weight: 700;">${p.barcode || "-"}</td>
-          </tr>
-          <tr>
-            <td style="padding: 6px 0; color: #64748b; font-weight: 600;">Category:</td>
-            <td style="padding: 6px 0; color: #0f172a;"><span style="background: #e2e8f0; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600;">${p.category || "General"}</span></td>
           </tr>
           <tr>
             <td style="padding: 6px 0; color: #64748b; font-weight: 600;">Selling Price:</td>

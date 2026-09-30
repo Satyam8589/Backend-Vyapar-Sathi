@@ -93,21 +93,21 @@ const checkAndSendLowStockAlerts = async (cart) => {
       return;
     }
 
-    const productIds = cart.products
-      .map((item) => item.product?._id || item.product)
-      .filter(Boolean);
+    if (!Product || typeof Product.find !== "function") return;
 
-    if (!productIds.length || !Product || typeof Product.find !== "function") return;
+    const query = Product.find({
+      store: store._id,
+      isActive: { $ne: false },
+      quantity: { $lte: threshold },
+    });
+    const lowStockDocs = typeof query?.sort === "function" ? await query.sort({ quantity: 1 }) : await query;
 
-    const updatedProducts = await Product.find({ _id: { $in: productIds } });
-
-    const lowStockProducts = updatedProducts
+    const lowStockProducts = (Array.isArray(lowStockDocs) ? lowStockDocs : [])
       .filter((p) => typeof p.quantity === "number" && p.quantity <= threshold)
       .map((p) => ({
         name: p.name,
-        brand: p.brand || "-",
-        barcode: p.barcode || "-",
         category: p.category || "General",
+        barcode: p.barcode || p.sku || "-",
         currentStock: p.quantity,
         unit: p.unit || "pcs",
         price: p.price,

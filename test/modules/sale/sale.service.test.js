@@ -162,6 +162,11 @@ describe("sale.service.materializeSaleFromCart", () => {
     await new Promise((resolve) => setImmediate(resolve));
 
     expect(mockStoreFindById).toHaveBeenCalledWith("store-1");
+    expect(mockProductFind).toHaveBeenCalledWith({
+      store: "store-1",
+      isActive: { $ne: false },
+      quantity: { $lte: 5 },
+    });
     expect(mockSendLowStockNotificationEmail).toHaveBeenCalledWith("owner@groceryshop.com", {
       storeName: "My Grocery Shop",
       storeId: "store-1",
@@ -169,7 +174,6 @@ describe("sale.service.materializeSaleFromCart", () => {
       lowStockProducts: [
         {
           name: "Rice Bag",
-          brand: "-",
           barcode: "1234567890",
           category: "Grocery",
           currentStock: 3,
