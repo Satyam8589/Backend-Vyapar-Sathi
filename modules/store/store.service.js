@@ -4,6 +4,10 @@ import Product from "../../models/product.model.js";
 import Employee from "../../models/employee.model.js";
 import Role from "../../models/role.model.js";
 import mongoose from "mongoose";
+import {
+  sendLowStockNotificationEmail,
+  sendHealthyInventoryNotificationEmail,
+} from "../../utils/mailer.js";
 
 /**
  * Service to Create a new Store
@@ -278,6 +282,83 @@ const getUserStores = async (userId) => {
 };
 
 /**
+ * Service to send instant inventory status / alert email (Low Stock or Healthy All Good)
+ */
+const sendInstantStockAlert = async (storeId) => {
+  const storeQuery = Store.findById(storeId);
+  const store =
+    storeQuery && typeof storeQuery.populate === "function"
+      ? await storeQuery.populate("owner")
+      : await storeQuery;
+
+  if (!store) {
+    throw new ApiError("Store not found", 404);
+  }
+
+  const threshold = Number(store.settings?.lowStockThreshold ?? 10);
+  const recipientEmail = store.email || store.owner?.email;
+
+  if (!recipientEmail) {
+    throw new ApiError("No recipient email address configured for this store.", 400);
+  }
+
+  const query = Product.find({
+    store: store._id,
+    isActive: { $ne: false },
+  });
+  const allActiveProducts =
+    typeof query?.sort === "function"
+      ? await query.sort({ quantity: 1 })
+      : await query;
+
+  const productList = Array.isArray(allActiveProducts) ? allActiveProducts : [];
+  const lowStockDocs = productList.filter(
+    (p) => typeof p.quantity === "number" && p.quantity <= threshold
+  );
+
+  if (lowStockDocs.length > 0) {
+    const lowStockProducts = lowStockDocs.map((p) => ({
+      name: p.name,
+      category: p.category || "General",
+      barcode: p.barcode || p.sku || "-",
+      currentStock: p.quantity,
+      unit: p.unit || "pcs",
+      price: p.price,
+    }));
+
+    await sendLowStockNotificationEmail(recipientEmail, {
+      storeName: store.name || store.storeName || "Vyapar Sathi Store",
+      storeId: store._id.toString(),
+      lowStockThreshold: threshold,
+      lowStockProducts,
+    });
+
+    return {
+      status: "low_stock",
+      lowStockCount: lowStockProducts.length,
+      totalProductsCount: productList.length,
+      recipientEmail,
+      message: `Low stock alert email sent for ${lowStockProducts.length} product(s) to ${recipientEmail}`,
+    };
+  } else {
+    // Send healthy / all good inventory email
+    await sendHealthyInventoryNotificationEmail(recipientEmail, {
+      storeName: store.name || store.storeName || "Vyapar Sathi Store",
+      storeId: store._id.toString(),
+      totalProductsCount: productList.length,
+    });
+
+    return {
+      status: "healthy",
+      lowStockCount: 0,
+      totalProductsCount: productList.length,
+      recipientEmail,
+      message: `Inventory healthy status email sent to ${recipientEmail}`,
+    };
+  }
+};
+
+/**
  * Legacy Alias for backward compatibility with older tests
  */
 const getStoresByOwner = getUserStores;
@@ -288,5 +369,6 @@ export {
   updateStore,
   deleteStore,
   getUserStores,
-  getStoresByOwner
+  getStoresByOwner,
+  sendInstantStockAlert,
 };

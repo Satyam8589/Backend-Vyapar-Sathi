@@ -130,58 +130,18 @@ describe("sale.service.materializeSaleFromCart", () => {
     });
   });
 
-  test("triggers low stock notification email when product quantity falls below store threshold", async () => {
+  test("does not trigger low stock email automatically on purchase (now manual / scheduled)", async () => {
     const cart = buildCart();
     const createdSale = { _id: "sale-lowstock" };
-    const mockStore = {
-      _id: "store-1",
-      name: "My Grocery Shop",
-      email: "owner@groceryshop.com",
-      settings: { lowStockThreshold: 5 },
-    };
 
     mockAssertCartAccess.mockResolvedValue(cart);
     mockSaleFindOne.mockResolvedValue(null);
     mockSaleCreate.mockResolvedValue(createdSale);
-    mockStoreFindById.mockReturnValue({
-      populate: jest.fn().mockResolvedValue(mockStore),
-    });
-    mockProductFind.mockResolvedValue([
-      {
-        _id: "product-1",
-        name: "Rice Bag",
-        barcode: "1234567890",
-        category: "Grocery",
-        quantity: 3, // Below threshold of 5!
-        unit: "Pcs",
-        price: 70,
-      },
-    ]);
 
     await materializeSaleFromCart("cart-1", "user-1");
     await new Promise((resolve) => setImmediate(resolve));
 
-    expect(mockStoreFindById).toHaveBeenCalledWith("store-1");
-    expect(mockProductFind).toHaveBeenCalledWith({
-      store: "store-1",
-      isActive: { $ne: false },
-      quantity: { $lte: 5 },
-    });
-    expect(mockSendLowStockNotificationEmail).toHaveBeenCalledWith("owner@groceryshop.com", {
-      storeName: "My Grocery Shop",
-      storeId: "store-1",
-      lowStockThreshold: 5,
-      lowStockProducts: [
-        {
-          name: "Rice Bag",
-          barcode: "1234567890",
-          category: "Grocery",
-          currentStock: 3,
-          unit: "Pcs",
-          price: 70,
-        },
-      ],
-    });
+    expect(mockSendLowStockNotificationEmail).not.toHaveBeenCalled();
   });
 
   test("backfills a completed cart without decrementing inventory again", async () => {

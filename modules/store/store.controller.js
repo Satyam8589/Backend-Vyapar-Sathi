@@ -106,3 +106,14 @@ export const storeDeleteController = async (req, res) => {
         res.status(error.statusCode || 500).json(new ApiResponse(null, error.message, error.statusCode || 500));
     }
 };
+
+//send instant stock alert email controller
+export const storeSendInstantStockAlertController = async (req, res) => {
+    try {
+        const { storeId } = req.params;
+        const result = await storeService.sendInstantStockAlert(storeId);
+        res.status(200).json(new ApiResponse(result, result.message, 200));
+    } catch (error) {
+        res.status(error.statusCode || 500).json(new ApiResponse(null, error.message, error.statusCode || 500));
+    }
+};

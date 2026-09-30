@@ -320,3 +320,108 @@ export const sendLowStockNotificationEmail = async (
     );
   }
 };
+
+// ---------------------------------------------------------------------------
+// sendHealthyInventoryNotificationEmail
+// ---------------------------------------------------------------------------
+
+/**
+ * Send an Inventory Health / All Good Status Email to the Store Owner.
+ *
+ * @param {string} toEmail - Recipient email (Store Email or Owner Email)
+ * @param {object} opts
+ * @param {string} opts.storeName           - Name of the store
+ * @param {string} opts.storeId             - Store ID for dashboard link
+ * @param {number} [opts.totalProductsCount=0] - Total products checked
+ * @param {object} [retryOpts]              - Custom retry options { maxRetries, delayMs }
+ */
+export const sendHealthyInventoryNotificationEmail = async (
+  toEmail,
+  { storeName, storeId, totalProductsCount = 0 },
+  retryOpts = {}
+) => {
+  if (!toEmail) return;
+
+  const dashboardUrl = `${
+    process.env.FRONTEND_URL || "http://localhost:3000"
+  }/storeDashboard/${storeId}`;
+
+  const formattedDate = new Date().toLocaleString("en-IN", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f1f5f9; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 24px auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.08); border: 1px solid #cbd5e1; }
+        .header { background: linear-gradient(135deg, #059669 0%, #10b981 100%); padding: 28px; text-align: center; color: #ffffff; }
+        .header h1 { margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.5px; }
+        .header p { margin: 6px 0 0 0; opacity: 0.92; font-size: 13px; font-weight: 500; }
+        .body { padding: 28px; }
+        .store-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px 20px; margin-bottom: 24px; }
+        .store-title { font-size: 18px; font-weight: 800; color: #0f172a; margin: 0 0 10px 0; }
+        .success-banner { background: #ecfdf5; border-left: 4px solid #10b981; padding: 14px 16px; border-radius: 8px; margin-bottom: 24px; font-size: 14px; color: #065f46; font-weight: 600; line-height: 1.5; }
+        .footer { padding: 20px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9; background: #f8fafc; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>✅ Inventory Healthy Status</h1>
+          <p>Vyapar Sathi Automated Inventory Monitor</p>
+        </div>
+        <div class="body">
+          <div class="store-card">
+            <h2 class="store-title">🏪 Store: ${storeName}</h2>
+            <div style="font-size: 13px; color: #475569; line-height: 1.6;">
+              <p style="margin: 4px 0;">📧 <strong>Owner Email:</strong> ${toEmail}</p>
+              <p style="margin: 4px 0;">🕒 <strong>Status Check Time:</strong> ${formattedDate}</p>
+              <p style="margin: 4px 0;">📦 <strong>Total Products Inspected:</strong> <span style="color: #059669; font-weight: 800;">${totalProductsCount} Product(s)</span></p>
+            </div>
+          </div>
+
+          <div class="success-banner">
+            🎉 Great news! All products in <strong>${storeName}</strong> are currently well-stocked above minimum alert thresholds. No items are low on stock or out of stock.
+          </div>
+
+          <div style="text-align:center; margin-top: 24px;">
+            <a href="${dashboardUrl}" style="display:inline-block; padding: 12px 28px; background: #059669; color: #fff; text-decoration: none; border-radius: 10px; font-size: 14px; font-weight: 700;">
+              📊 Go to Store Dashboard
+            </a>
+          </div>
+        </div>
+        <div class="footer">
+          This is an automated inventory health notification for <strong>${storeName}</strong>.<br/>
+          © ${new Date().getFullYear()} Vyapar Sathi Inventory Management System
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  const maxRetries = retryOpts.maxRetries ?? 3;
+  const delayMs = retryOpts.delayMs ?? 60000;
+
+  try {
+    await sendMailWithRetry(
+      {
+        from: getFromAddress("Vyapar Sathi"),
+        to: toEmail,
+        subject: `✅ All Good: Inventory Healthy Status for ${storeName}`,
+        html,
+      },
+      maxRetries,
+      delayMs
+    );
+  } catch (err) {
+    console.error(
+      `[MAILER ERROR] Failed to send healthy inventory email to ${toEmail}:`,
+      err.message
+    );
+  }
+};

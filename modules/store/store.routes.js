@@ -1,5 +1,12 @@
 import { Router } from "express";
-import { storeCreateController, storeGetController, storeUpdateController, storeDeleteController, storeGetAllController } from "./store.controller.js";
+import {
+  storeCreateController,
+  storeGetController,
+  storeUpdateController,
+  storeDeleteController,
+  storeGetAllController,
+  storeSendInstantStockAlertController,
+} from "./store.controller.js";
 import authMiddleware from "../../middlewares/auth.middleware.js";
 import requireUser from "../../middlewares/requireUser.middleware.js";
 import roleRoutes from "../role/role.routes.js";
@@ -21,5 +28,6 @@ router.use("/:storeId/employees", employeeRoutes);
 router.route("/:storeId").get(storeGetController);
 router.route("/:storeId").put(storeUpdateController);
 router.route("/:storeId").delete(storeDeleteController);
+router.route("/:storeId/send-stock-alert").post(storeSendInstantStockAlertController);
 
 export default router;

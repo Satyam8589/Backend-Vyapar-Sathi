@@ -178,11 +178,6 @@ export const materializeSaleFromCart = async (cartId, userId) => {
 
   if (!isBackfillForCompletedCart) {
     await decrementInventory(cart);
-
-    // Fire low-stock check asynchronously in microtask queue (decoupled from billing, cloud runtime safe)
-    checkAndSendLowStockAlerts(cart).catch((err) =>
-      console.error("[LOW STOCK TRIGGER EXCEPTION]", err)
-    );
   }
 
   const sale = await Sale.create({

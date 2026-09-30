@@ -27,6 +27,7 @@ jest.unstable_mockModule(
     storeUpdateController: jest.fn(),
     storeDeleteController: jest.fn(),
     storeGetAllController: jest.fn(),
+    storeSendInstantStockAlertController: jest.fn(),
   }),
 );
 
