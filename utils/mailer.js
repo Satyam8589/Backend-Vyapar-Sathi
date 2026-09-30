@@ -50,8 +50,10 @@ export const sendMailWithRetry = async (
     try {
       const resend = getResendClient();
 
+      const from = mailOptions.from || getFromAddress();
+
       const { data, error } = await resend.emails.send({
-        from: mailOptions.from,
+        from,
         to: mailOptions.to,
         subject: mailOptions.subject,
         html: mailOptions.html,

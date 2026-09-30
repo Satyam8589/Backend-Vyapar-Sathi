@@ -20,6 +20,9 @@ import "./workers/expressWorker.js";
 
 const app = express();
 
+// Trust reverse proxy headers (Render, Cloudflare, etc.) for accurate rate-limiting
+app.set("trust proxy", 1);
+
 connectDB();
 
 app.use(express.json());
