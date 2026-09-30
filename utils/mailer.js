@@ -1,78 +1,82 @@
-import nodemailer from "nodemailer";
-import dns from "dns";
+import { Resend } from "resend";
+
+// ---------------------------------------------------------------------------
+// Resend client — created lazily so env vars are always read AFTER dotenv.config()
+// ---------------------------------------------------------------------------
 
 /**
- * Custom DNS lookup to strictly enforce IPv4 resolution.
- * Prevents ENETUNREACH errors on cloud servers (e.g. Render, Railway, AWS) that lack outbound IPv6 routing.
+ * Return a configured Resend client.
+ * Logs a clear error if RESEND_API_KEY is missing.
  */
-const customIPv4Lookup = (hostname, options, callback) => {
-  return dns.lookup(hostname, { family: 4, hints: dns.ADDRCONFIG }, callback);
-};
-
-/**
- * Retrieve mail credentials supporting MAIL_USER/MAIL_PASS, GMAIL_USER/GMAIL_APP_PASSWORD, or SMTP env vars.
- */
-const getMailCredentials = () => {
-  const user = (process.env.MAIL_USER || process.env.GMAIL_USER || process.env.SMTP_USER || "").trim();
-  const pass = (process.env.MAIL_PASS || process.env.GMAIL_APP_PASSWORD || process.env.SMTP_PASS || "").trim();
-  return { user, pass };
-};
-
-/**
- * Create a fresh Nodemailer transporter on-demand so that
- * env vars are always read AFTER dotenv.config() has run.
- * Supports Gmail, Sendgrid, or any SMTP provider.
- */
-const createTransporter = () => {
-  const { user, pass } = getMailCredentials();
-
-  if (!user || !pass) {
+const getResendClient = () => {
+  const apiKey = process.env.RESEND_API_KEY?.trim();
+  if (!apiKey) {
     console.error(
-      "[MAILER CONFIG ERROR] Missing email credentials! Ensure GMAIL_USER/GMAIL_APP_PASSWORD or MAIL_USER/MAIL_PASS environment variables are added in your production deployment dashboard (e.g. Render Environment Settings)."
+      "[MAILER CONFIG ERROR] Missing RESEND_API_KEY! Add it to your environment variables (e.g. Render Environment Settings)."
     );
   }
-
-  // Explicit Port 465 SSL connection optimized for cloud deployments (Render, Railway, AWS, DigitalOcean)
-  const host = process.env.MAIL_HOST || process.env.SMTP_HOST || "smtp.gmail.com";
-  const port = Number(process.env.MAIL_PORT || process.env.SMTP_PORT) || 465;
-  const secure = port === 465;
-
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure, // true for 465 (SSL), false for 587
-    lookup: customIPv4Lookup, // Forces IPv4 resolution to prevent ENETUNREACH IPv6 error on Render/Cloud servers
-    family: 4,
-    auth: { user, pass },
-    connectionTimeout: 15000, // 15s connection timeout for cloud network stability
-    greetingTimeout: 15000,
-    socketTimeout: 20000,
-    tls: {
-      rejectUnauthorized: false, // Prevents cloud TLS handshake blocks
-    },
-  });
+  return new Resend(apiKey);
 };
 
 /**
- * Helper function to send email with automatic retry mechanism.
- * Retries up to `maxRetries` times with a `delayMs` pause between attempts.
- * Default: Max 3 retries (4 total attempts) with a 1-minute (60,000ms) interval between attempts.
+ * The "from" address used for all outgoing emails.
+ * Reads MAIL_FROM_ADDRESS from env; defaults to the Resend sandbox address.
  */
-export const sendMailWithRetry = async (mailOptions, maxRetries = 3, delayMs = 3000) => {
+const getFromAddress = (label = "Vyapar Sathi") => {
+  const address =
+    process.env.MAIL_FROM_ADDRESS?.trim() || "onboarding@resend.dev";
+  return `"${label}" <${address}>`;
+};
+
+// ---------------------------------------------------------------------------
+// Core retry helper
+// ---------------------------------------------------------------------------
+
+/**
+ * Send an email via Resend with automatic retry on failure.
+ *
+ * @param {object} mailOptions         - { from, to, subject, html, [replyTo] }
+ * @param {number} [maxRetries=3]      - Number of retries after the first failure
+ * @param {number} [delayMs=3000]      - Pause between retries (ms)
+ */
+export const sendMailWithRetry = async (
+  mailOptions,
+  maxRetries = 3,
+  delayMs = 3000
+) => {
   let attempt = 0;
+
   while (attempt <= maxRetries) {
     try {
-      const transporter = createTransporter();
-      const info = await transporter.sendMail(mailOptions);
-      if (attempt > 0) {
-        console.log(`[MAILER] Email successfully sent to ${mailOptions.to} on retry attempt #${attempt}`);
+      const resend = getResendClient();
+
+      const { data, error } = await resend.emails.send({
+        from: mailOptions.from,
+        to: mailOptions.to,
+        subject: mailOptions.subject,
+        html: mailOptions.html,
+        ...(mailOptions.replyTo ? { reply_to: mailOptions.replyTo } : {}),
+      });
+
+      if (error) {
+        // Resend returns errors in-band rather than throwing
+        throw new Error(error.message || JSON.stringify(error));
       }
-      return info;
+
+      if (attempt > 0) {
+        console.log(
+          `[MAILER] Email successfully sent to ${mailOptions.to} on retry attempt #${attempt} (id: ${data?.id})`
+        );
+      }
+
+      return data;
     } catch (err) {
       attempt++;
       if (attempt <= maxRetries) {
         console.warn(
-          `[MAILER WARNING] Failed to send email to ${mailOptions.to} (Attempt ${attempt}/${maxRetries + 1}): ${err.message}. Retrying in ${delayMs / 1000}s...`
+          `[MAILER WARNING] Failed to send email to ${mailOptions.to} (Attempt ${attempt}/${
+            maxRetries + 1
+          }): ${err.message}. Retrying in ${delayMs / 1000}s...`
         );
         await new Promise((resolve) => setTimeout(resolve, delayMs));
       } else {
@@ -86,23 +90,26 @@ export const sendMailWithRetry = async (mailOptions, maxRetries = 3, delayMs = 3
   }
 };
 
+// ---------------------------------------------------------------------------
+// sendInviteEmail
+// ---------------------------------------------------------------------------
+
 /**
  * Send a store employee invitation email with the accept link.
  *
  * @param {string} toEmail - Recipient's email address
  * @param {object} opts
- * @param {string} opts.storeName  - Name of the store
- * @param {string} opts.roleName   - Role being assigned
- * @param {string} opts.ownerName  - Owner's name
+ * @param {string} opts.storeName   - Name of the store
+ * @param {string} opts.roleName    - Role being assigned
+ * @param {string} opts.ownerName   - Owner's name
  * @param {string} opts.inviteToken - The unique token
- * @param {object} [retryOpts] - Custom retry options { maxRetries, delayMs }
+ * @param {object} [retryOpts]      - Custom retry options { maxRetries, delayMs }
  */
 export const sendInviteEmail = async (
   toEmail,
   { storeName, roleName, ownerName, inviteToken },
   retryOpts = {}
 ) => {
-  const { user } = getMailCredentials();
   const inviteUrl = `${process.env.FRONTEND_URL}/invite/${inviteToken}`;
 
   const html = `
@@ -156,7 +163,7 @@ export const sendInviteEmail = async (
 
   await sendMailWithRetry(
     {
-      from: `"Vyapar Sathi" <${user}>`,
+      from: getFromAddress("Vyapar Sathi"),
       to: toEmail,
       subject: `You're invited to join ${storeName} on Vyapar Sathi`,
       html,
@@ -166,17 +173,20 @@ export const sendInviteEmail = async (
   );
 };
 
+// ---------------------------------------------------------------------------
+// sendLowStockNotificationEmail
+// ---------------------------------------------------------------------------
+
 /**
  * Send a Low Stock Warning Email to the Store Owner when products fall below threshold.
- * Retries up to maxRetries (default 3) at delayMs (default 60,000ms = 1 min) intervals.
  *
  * @param {string} toEmail - Recipient email (Store Email or Owner Email)
  * @param {object} opts
- * @param {string} opts.storeName - Name of the store
- * @param {string} opts.storeId - Store ID for dashboard link
+ * @param {string} opts.storeName           - Name of the store
+ * @param {string} opts.storeId             - Store ID for dashboard link
  * @param {number} [opts.lowStockThreshold=10] - Threshold set during store creation
- * @param {Array} opts.lowStockProducts - List of low stock product objects
- * @param {object} [retryOpts] - Custom retry options { maxRetries, delayMs }
+ * @param {Array}  opts.lowStockProducts    - List of low stock product objects
+ * @param {object} [retryOpts]              - Custom retry options { maxRetries, delayMs }
  */
 export const sendLowStockNotificationEmail = async (
   toEmail,
@@ -185,8 +195,10 @@ export const sendLowStockNotificationEmail = async (
 ) => {
   if (!toEmail || !lowStockProducts || lowStockProducts.length === 0) return;
 
-  const { user } = getMailCredentials();
-  const dashboardUrl = `${process.env.FRONTEND_URL || "http://localhost:3000"}/storeDashboard/${storeId}`;
+  const dashboardUrl = `${
+    process.env.FRONTEND_URL || "http://localhost:3000"
+  }/storeDashboard/${storeId}`;
+
   const formattedDate = new Date().toLocaleString("en-IN", {
     dateStyle: "medium",
     timeStyle: "short",
@@ -256,7 +268,6 @@ export const sendLowStockNotificationEmail = async (
           <p>Vyapar Sathi Automated Inventory Monitor</p>
         </div>
         <div class="body">
-          
           <!-- Store Details Card -->
           <div class="store-card">
             <h2 class="store-title">🏪 Store: ${storeName}</h2>
@@ -274,6 +285,12 @@ export const sendLowStockNotificationEmail = async (
 
           <!-- Product Details Column Cards -->
           ${productCards}
+
+          <div style="text-align:center; margin-top: 24px;">
+            <a href="${dashboardUrl}" style="display:inline-block; padding: 12px 28px; background: #dc2626; color: #fff; text-decoration: none; border-radius: 10px; font-size: 14px; font-weight: 700;">
+              📊 Go to Store Dashboard
+            </a>
+          </div>
         </div>
         <div class="footer">
           This is an automated low stock alert generated for <strong>${storeName}</strong>.<br/>
@@ -290,7 +307,7 @@ export const sendLowStockNotificationEmail = async (
   try {
     await sendMailWithRetry(
       {
-        from: `"Vyapar Sathi Alert" <${user}>`,
+        from: getFromAddress("Vyapar Sathi Alert"),
         to: toEmail,
         subject: `⚠️ Low Stock Alert: ${lowStockProducts.length} Product(s) Need Restocking in ${storeName}`,
         html,
@@ -299,6 +316,9 @@ export const sendLowStockNotificationEmail = async (
       delayMs
     );
   } catch (err) {
-    console.error(`[MAILER ERROR] Failed to send low stock alert email to ${toEmail}:`, err.message);
+    console.error(
+      `[MAILER ERROR] Failed to send low stock alert email to ${toEmail}:`,
+      err.message
+    );
   }
 };

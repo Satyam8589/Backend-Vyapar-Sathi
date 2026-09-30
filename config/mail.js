@@ -1,13 +1,12 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 import dotenv from "dotenv";
 dotenv.config();
 
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_APP_PASSWORD,
-  },
-});
+/**
+ * Shared Resend client instance.
+ * Replaces the old nodemailer transporter.
+ * Use `resend.emails.send(...)` wherever you previously called `transporter.sendMail(...)`.
+ */
+const resend = new Resend(process.env.RESEND_API_KEY);
 
-export default transporter;
+export default resend;
