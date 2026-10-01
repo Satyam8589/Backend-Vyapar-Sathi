@@ -11,6 +11,11 @@ const cartSchema = new mongoose.Schema({
         ref: 'Store',
         required: true
     },
+    buyer: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Buyer',
+        default: null
+    },
     products: [
         {
             product: {
@@ -52,6 +57,21 @@ const cartSchema = new mongoose.Schema({
             type: Number,
             default: 0
         }
+    },
+    tax: {
+        type: Number,
+        default: 0,
+        min: 0
+    },
+    paidAmount: {
+        type: Number,
+        default: 0,
+        min: 0
+    },
+    dueAmount: {
+        type: Number,
+        default: 0,
+        min: 0
     },
     status: {
         type: String,

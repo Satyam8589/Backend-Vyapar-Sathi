@@ -11,6 +11,10 @@ import {
   getSlowMovingProducts,
   getProductOverview,
 } from "./productAnalytics.service.js";
+import {
+  getProfitLossSummary,
+  getProductWiseProfit
+} from "./profitLossAnalytics.service.js";
 
 const MAX_RANGE_DAYS = 180;
 
@@ -209,6 +213,36 @@ export const getProductOverviewController = async (req, res) => {
     res
       .status(200)
       .json(new ApiResponse(overview, "Product analytics fetched successfully", 200));
+  } catch (error) {
+    handleControllerError(res, error);
+  }
+};
+
+export const getProfitLossController = async (req, res) => {
+  try {
+    validateObjectId(req.params.storeId, "storeId");
+    const range = parseDateRange(req.query);
+
+    const profitLoss = await getProfitLossSummary(req.params.storeId, range);
+
+    res
+      .status(200)
+      .json(new ApiResponse(profitLoss, "Profit & Loss analytics fetched successfully", 200));
+  } catch (error) {
+    handleControllerError(res, error);
+  }
+};
+
+export const getProductProfitController = async (req, res) => {
+  try {
+    validateObjectId(req.params.storeId, "storeId");
+    const range = parseDateRange(req.query);
+
+    const productProfit = await getProductWiseProfit(req.params.storeId, range);
+
+    res
+      .status(200)
+      .json(new ApiResponse(productProfit, "Product-wise profit analytics fetched successfully", 200));
   } catch (error) {
     handleControllerError(res, error);
   }
