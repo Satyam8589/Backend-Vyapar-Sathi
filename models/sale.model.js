@@ -62,6 +62,12 @@ const saleSchema = new mongoose.Schema(
       unique: true,
       index: true,
     },
+    buyer: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Buyer",
+      default: null,
+      index: true,
+    },
     items: {
       type: [saleItemSchema],
       default: [],
@@ -95,6 +101,27 @@ const saleSchema = new mongoose.Schema(
         default: 0,
       },
     },
+    tax: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    paidAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    dueAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    paymentStatus: {
+      type: String,
+      enum: ["paid", "partial", "unpaid"],
+      default: "paid",
+      index: true,
+    },
     paymentId: {
       type: String,
       trim: true,
@@ -114,6 +141,27 @@ const saleSchema = new mongoose.Schema(
 
 saleSchema.index({ store: 1, completedAt: -1 });
 saleSchema.index({ "items.productId": 1, completedAt: -1 });
+saleSchema.index({ store: 1, buyer: 1 });
+
+saleSchema.pre('save', function(next) {
+    if (this.isNew && this.paidAmount === 0 && this.paymentStatus === 'paid') {
+       // Backward compatibility for existing logic
+       this.paidAmount = this.totalAmount;
+    }
+    
+    if (this.paidAmount >= this.totalAmount) {
+        this.paymentStatus = 'paid';
+    } else if (this.paidAmount > 0) {
+        this.paymentStatus = 'partial';
+    } else {
+        this.paymentStatus = 'unpaid';
+    }
+    
+    // Automatically calculate due amount
+    this.dueAmount = Math.max(0, this.totalAmount - this.paidAmount);
+    
+    next();
+});
 
 const Sale = mongoose.model("Sale", saleSchema);
 

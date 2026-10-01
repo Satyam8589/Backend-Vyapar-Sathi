@@ -10,6 +10,8 @@ import {
 	getTopProductsController,
 	getSlowMovingProductsController,
 	getProductOverviewController,
+	getProfitLossController,
+	getProductProfitController,
 } from "./analytics.controller.js";
 
 const router = Router();
@@ -51,6 +53,18 @@ router.get(
 	"/store/:storeId/products/:productId/overview",
 	requirePermission(PERMISSIONS.REPORTS_VIEW_SALES),
 	getProductOverviewController
+);
+
+router.get(
+	"/store/:storeId/profit-loss",
+	requirePermission(PERMISSIONS.REPORTS_VIEW_SALES),
+	getProfitLossController
+);
+
+router.get(
+	"/store/:storeId/products/profit",
+	requirePermission(PERMISSIONS.REPORTS_VIEW_SALES),
+	getProductProfitController
 );
 
 export default router;

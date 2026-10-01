@@ -7,6 +7,9 @@ import saleRoutes from "../modules/sale/sale.routes.js";
 import aiRoutes from "../modules/ai/ai.routes.js";
 import inviteRoutes from "../modules/invite/invite.routes.js";
 import analyticsRoutes from "../modules/analytics/analytics.route.js";
+import sellerRoutes from "../modules/seller/seller.routes.js";
+import purchaseRoutes from "../modules/purchase/purchase.routes.js";
+import buyerRoutes from "../modules/buyer/buyer.routes.js";
 import { Router } from "express";
 
 const router = Router();
@@ -23,6 +26,9 @@ router.use("/sales", saleRoutes);
 router.use("/ai", aiRoutes);
 router.use("/invite", inviteRoutes);
 router.use("/analytics", analyticsRoutes);
+router.use("/sellers", sellerRoutes);
+router.use("/purchases", purchaseRoutes);
+router.use("/buyers", buyerRoutes);
 
 export default router;
 
