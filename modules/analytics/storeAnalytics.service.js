@@ -58,6 +58,7 @@ export const getStoreSummary = async (storeId, range) => {
 
   let revenue = 0;
   let unitsSold = 0;
+  let totalCost = 0;
   const soldProductIds = new Set();
 
   for (const sale of sales) {
@@ -65,6 +66,9 @@ export const getStoreSummary = async (storeId, range) => {
 
     for (const item of sale.items || []) {
       unitsSold += Number(item.quantity || 0);
+      if (item.unitBuyingPrice != null) {
+        totalCost += Number(item.unitBuyingPrice) * Number(item.quantity || 0);
+      }
       if (item.productId) {
         soldProductIds.add(String(item.productId));
       }
@@ -72,6 +76,8 @@ export const getStoreSummary = async (storeId, range) => {
   }
 
   const orderCount = sales.length;
+  const profit = revenue - totalCost;
+  const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
 
   return {
     range: {
@@ -81,6 +87,8 @@ export const getStoreSummary = async (storeId, range) => {
     },
     cards: {
       revenue: round(revenue),
+      profit: round(profit),
+      margin: round(margin),
       unitsSold,
       orderCount,
       averageOrderValue: orderCount ? round(revenue / orderCount) : 0,

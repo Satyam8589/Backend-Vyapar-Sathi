@@ -12,7 +12,8 @@ const buildSaleItems = (cart) =>
     }
 
     const quantity = Number(item.quantity || 0);
-    const unitPrice = Number(item.price ?? product.price ?? 0);
+    const unitPrice = Number(item.price ?? product.sellingPrice ?? 0);
+    const unitBuyingPrice = Number(product.buyingPrice ?? 0);
 
     return {
       productId: product._id,
@@ -20,6 +21,7 @@ const buildSaleItems = (cart) =>
       categorySnapshot: product.category || "General",
       quantity,
       unitPrice,
+      unitBuyingPrice,
       lineTotal: unitPrice * quantity,
     };
   });
@@ -110,7 +112,7 @@ const checkAndSendLowStockAlerts = async (cart) => {
         barcode: p.barcode || p.sku || "-",
         currentStock: p.quantity,
         unit: p.unit || "pcs",
-        price: p.price,
+        price: p.sellingPrice,
       }));
 
     if (lowStockProducts.length > 0) {

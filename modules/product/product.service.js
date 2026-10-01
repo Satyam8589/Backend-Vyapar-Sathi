@@ -5,8 +5,8 @@ import { normalizeProduct } from "./normalizer.service.js";
 //create product service
 export const addProduct = async (productData) => {
     try {
-        if (!productData.name || !productData.category || !productData.price) {
-            throw new ApiError("Name, category, and price are required", 400);
+        if (!productData.name || !productData.category || productData.sellingPrice === undefined || productData.buyingPrice === undefined) {
+            throw new ApiError("Name, category, selling price, and buying price are required", 400);
         }
 
         if (!productData.store) {

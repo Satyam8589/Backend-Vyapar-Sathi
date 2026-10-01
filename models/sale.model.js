@@ -27,6 +27,11 @@ const saleItemSchema = new mongoose.Schema(
       required: true,
       min: 0,
     },
+    unitBuyingPrice: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
     lineTotal: {
       type: Number,
       required: true,

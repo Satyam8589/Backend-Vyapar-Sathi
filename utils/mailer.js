@@ -232,7 +232,7 @@ export const sendLowStockNotificationEmail = async (
           </tr>
           <tr>
             <td style="padding: 6px 0; color: #64748b; font-weight: 600;">Selling Price:</td>
-            <td style="padding: 6px 0; color: #0f172a; font-weight: 800; font-size: 14px;">₹${Number(p.price || 0).toFixed(2)}</td>
+            <td style="padding: 6px 0; color: #0f172a; font-weight: 800; font-size: 14px;">₹${Number(p.sellingPrice || 0).toFixed(2)}</td>
           </tr>
         </tbody>
       </table>

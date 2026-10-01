@@ -10,7 +10,8 @@ export const TARGET_FIELDS = [
   { key: "name", label: "Product Name", required: true },
   { key: "barcode", label: "Barcode / SKU / EAN", required: false },
   { key: "category", label: "Category", required: true },
-  { key: "price", label: "Selling Price / Rate", required: true },
+  { key: "buyingPrice", label: "Buying Price", required: true },
+  { key: "sellingPrice", label: "Selling Price / Rate", required: true },
   { key: "quantity", label: "Quantity / Stock", required: true },
   { key: "unit", label: "Unit (e.g., Pcs, Kg)", required: false },
   { key: "brand", label: "Brand / Manufacturer", required: false },
@@ -26,7 +27,8 @@ function fallbackHeaderMapping(headers = []) {
     name: null,
     barcode: null,
     category: null,
-    price: null,
+    buyingPrice: null,
+    sellingPrice: null,
     quantity: null,
     unit: null,
     brand: null,
@@ -43,8 +45,10 @@ function fallbackHeaderMapping(headers = []) {
       mapping.barcode = h;
     } else if (!mapping.category && /(category|type|group|dept)/i.test(headerStr)) {
       mapping.category = h;
-    } else if (!mapping.price && /(price|rate|mrp|cost|amount|selling)/i.test(headerStr)) {
-      mapping.price = h;
+    } else if (!mapping.buyingPrice && /(cost|buying|purchase)/i.test(headerStr)) {
+      mapping.buyingPrice = h;
+    } else if (!mapping.sellingPrice && /(price|rate|mrp|amount|selling)/i.test(headerStr) && !/(cost|buying|purchase)/i.test(headerStr)) {
+      mapping.sellingPrice = h;
     } else if (!mapping.quantity && /(qty|quantity|stock|count|avail|balance)/i.test(headerStr)) {
       mapping.quantity = h;
     } else if (!mapping.unit && /(unit|pack|size|uom)/i.test(headerStr)) {
@@ -96,7 +100,8 @@ Target Form Fields:
 - name: Product Name / Item Title / Item Name
 - barcode: Barcode / UPC / EAN / Item Code / SKU
 - category: Category / Product Group / Department
-- price: Selling Price / Sale Rate / MRP / Price
+- buyingPrice: Cost Price / Buying Price / Purchase Rate
+- sellingPrice: Selling Price / Sale Rate / MRP / Price
 - quantity: Stock Quantity / Qty / Available Stock / Count
 - unit: Unit of measure (Pieces, Kg, Liters, Boxes, Pcs)
 - brand: Brand / Manufacturer / Company
@@ -115,7 +120,8 @@ Return a JSON object with this exact shape:
     "name": "Matched Excel Header String or null",
     "barcode": "Matched Excel Header String or null",
     "category": "Matched Excel Header String or null",
-    "price": "Matched Excel Header String or null",
+    "buyingPrice": "Matched Excel Header String or null",
+    "sellingPrice": "Matched Excel Header String or null",
     "quantity": "Matched Excel Header String or null",
     "unit": "Matched Excel Header String or null",
     "brand": "Matched Excel Header String or null",
@@ -270,15 +276,16 @@ export const executeBulkProductUpload = async ({ storeId, userId, rows, columnMa
   const nameCol = columnMapping.name;
   const barcodeCol = columnMapping.barcode;
   const categoryCol = columnMapping.category;
-  const priceCol = columnMapping.price;
+  const buyingPriceCol = columnMapping.buyingPrice;
+  const sellingPriceCol = columnMapping.sellingPrice;
   const quantityCol = columnMapping.quantity;
   const unitCol = columnMapping.unit;
   const brandCol = columnMapping.brand;
   const expDateCol = columnMapping.expDate;
 
-  if (!nameCol || !priceCol || !quantityCol) {
+  if (!nameCol || !sellingPriceCol || !buyingPriceCol || !quantityCol) {
     throw new ApiError(
-      "Missing critical mappings. 'Product Name', 'Selling Price', and 'Quantity' must be mapped.",
+      "Missing critical mappings. 'Product Name', 'Buying Price', 'Selling Price', and 'Quantity' must be mapped.",
       400
     );
   }
@@ -297,10 +304,11 @@ export const executeBulkProductUpload = async ({ storeId, userId, rows, columnMa
       continue;
     }
 
-    const price = cleanNumber(rawRow[priceCol], -1);
-    if (price < 0) {
+    const sellingPrice = cleanNumber(rawRow[sellingPriceCol], -1);
+    const buyingPrice = cleanNumber(rawRow[buyingPriceCol], -1);
+    if (sellingPrice < 0 || buyingPrice < 0) {
       results.failed++;
-      results.errors.push({ rowNumber: idx + 2, product: rawName, error: "Invalid or missing price" });
+      results.errors.push({ rowNumber: idx + 2, product: rawName, error: "Invalid or missing selling/buying price" });
       continue;
     }
 
@@ -315,7 +323,8 @@ export const executeBulkProductUpload = async ({ storeId, userId, rows, columnMa
     if (aggregatedMap.has(key)) {
       const existing = aggregatedMap.get(key);
       existing.quantity += qty;
-      existing.price = price; // update to latest price
+      existing.sellingPrice = sellingPrice; 
+      existing.buyingPrice = buyingPrice;
       if (expDate) existing.expDate = expDate;
     } else {
       aggregatedMap.set(key, {
@@ -323,7 +332,8 @@ export const executeBulkProductUpload = async ({ storeId, userId, rows, columnMa
         name: rawName,
         barcode: rawBarcode,
         category,
-        price,
+        sellingPrice,
+        buyingPrice,
         quantity: qty,
         unit,
         brand,
@@ -378,7 +388,8 @@ export const executeBulkProductUpload = async ({ storeId, userId, rows, columnMa
           : storeProd.quantity + item.quantity;
 
         storeProd.quantity = finalQuantity;
-        storeProd.price = item.price;
+        storeProd.sellingPrice = item.sellingPrice;
+        storeProd.buyingPrice = item.buyingPrice;
         if (item.expDate) {
           storeProd.expDate = item.expDate;
         }
@@ -391,14 +402,14 @@ export const executeBulkProductUpload = async ({ storeId, userId, rows, columnMa
         let inv = await Inventory.findOne({ store: storeId, product: storeProd._id });
         if (inv) {
           inv.quantity = finalQuantity;
-          inv.sellingPrice = item.price;
+          inv.sellingPrice = item.sellingPrice;
           await inv.save();
         } else {
           inv = new Inventory({
             store: storeId,
             product: storeProd._id,
             quantity: finalQuantity,
-            sellingPrice: item.price,
+            sellingPrice: item.sellingPrice,
           });
           await inv.save();
         }
@@ -411,7 +422,8 @@ export const executeBulkProductUpload = async ({ storeId, userId, rows, columnMa
           brand: item.brand || masterProd?.brand || null,
           barcode: item.barcode,
           category: item.category || masterProd?.category || "General",
-          price: item.price,
+          sellingPrice: item.sellingPrice,
+          buyingPrice: item.buyingPrice,
           quantity: item.quantity,
           unit: item.unit,
           expDate: item.expDate,
@@ -423,7 +435,7 @@ export const executeBulkProductUpload = async ({ storeId, userId, rows, columnMa
           store: storeId,
           product: newProd._id,
           quantity: item.quantity,
-          sellingPrice: item.price,
+          sellingPrice: item.sellingPrice,
         });
         await newInv.save();
 

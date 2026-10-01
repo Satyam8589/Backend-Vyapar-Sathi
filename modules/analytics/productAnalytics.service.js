@@ -248,7 +248,7 @@ export const getProductOverview = async (storeId, productId, range, options = {}
       store: storeId,
       isActive: true,
     })
-      .select("name category price quantity unit sku barcode image expDate isActive")
+      .select("name category sellingPrice buyingPrice quantity unit sku barcode image expDate isActive")
       .lean(),
     Inventory.findOne({ store: storeId, product: productId, isActive: true })
       .select("minStockLevel isLowStock isOutOfStock")
@@ -274,6 +274,7 @@ export const getProductOverview = async (storeId, productId, range, options = {}
   const aggregateSales = (from, to, includeTrend = false) => {
     const result = {
       revenue: 0,
+      cost: 0,
       units: 0,
       orders: 0,
       lastSoldAt: null,
@@ -286,12 +287,14 @@ export const getProductOverview = async (storeId, productId, range, options = {}
       }
 
       let saleRevenue = 0;
+      let saleCost = 0;
       let saleUnits = 0;
       for (const item of sale.items || []) {
         if (String(item.productId) !== String(productId)) {
           continue;
         }
         saleRevenue += Number(item.lineTotal || 0);
+        saleCost += Number((item.unitBuyingPrice || 0) * (item.quantity || 0));
         saleUnits += Number(item.quantity || 0);
       }
 
@@ -300,6 +303,7 @@ export const getProductOverview = async (storeId, productId, range, options = {}
       }
 
       result.revenue += saleRevenue;
+      result.cost += saleCost;
       result.units += saleUnits;
       result.orders += 1;
       result.lastSoldAt = !result.lastSoldAt || completedAt > new Date(result.lastSoldAt)
@@ -366,8 +370,9 @@ export const getProductOverview = async (storeId, productId, range, options = {}
         orderId: sale._id,
         quantity: Number(item.quantity || 0),
         sellingPrice: Number(item.unitPrice || 0),
+        buyingPrice: Number(item.unitBuyingPrice || 0),
         revenue: Number(item.lineTotal || 0),
-        profit: null,
+        profit: Number(((item.unitPrice || 0) - (item.unitBuyingPrice || 0)) * (item.quantity || 0)),
       };
     })
     .filter(Boolean);
@@ -382,8 +387,10 @@ export const getProductOverview = async (storeId, productId, range, options = {}
       sku: product.sku || null,
       barcode: product.barcode || null,
       image: product.image || null,
-      price: Number(product.price || 0),
-      currentPrice: Number(product.price || 0),
+      price: Number(product.sellingPrice || 0),
+      currentPrice: Number(product.sellingPrice || 0),
+      sellingPrice: Number(product.sellingPrice || 0),
+      buyingPrice: Number(product.buyingPrice || 0),
       currentStock,
       unit: product.unit || null,
       expiryDate: product.expDate || null,
@@ -427,12 +434,12 @@ export const getProductOverview = async (storeId, productId, range, options = {}
     },
     profit: {
       totalRevenue: round(current.revenue),
-      totalCost: null,
-      grossProfit: null,
-      profitMargin: null,
-      averageProfitPerUnit: null,
-      available: false,
-      message: "Historical cost is not stored on sale items; accurate profit requires cost snapshots.",
+      totalCost: round(current.cost),
+      grossProfit: round(current.revenue - current.cost),
+      profitMargin: current.revenue > 0 ? round(((current.revenue - current.cost) / current.revenue) * 100) : 0,
+      averageProfitPerUnit: current.units ? round((current.revenue - current.cost) / current.units) : 0,
+      available: true,
+      message: "Profit calculated using historical cost snapshots.",
     },
     stock: {
       currentStock,

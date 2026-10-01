@@ -45,7 +45,7 @@ describe("product.controller.addProductController", () => {
       body: {
         name: "Test Product",
         category: "Electronics",
-        price: 999,
+        sellingPrice: 999, buyingPrice: 999,
         quantity: 10,
         storeId: "507f1f77bcf86cd799439011",
       },
@@ -58,7 +58,7 @@ describe("product.controller.addProductController", () => {
       _id: "507f1f77bcf86cd799439013",
       name: "Test Product",
       category: "Electronics",
-      price: 999,
+      sellingPrice: 999, buyingPrice: 999,
       quantity: 10,
       store: "507f1f77bcf86cd799439011",
       createdBy: req.user._id,
@@ -78,7 +78,7 @@ describe("product.controller.addProductController", () => {
     expect(mockAddProduct).toHaveBeenCalledWith({
       name: "Test Product",
       category: "Electronics",
-      price: 999,
+      sellingPrice: 999, buyingPrice: 999,
       quantity: 10,
       storeId: "507f1f77bcf86cd799439011",
       store: "507f1f77bcf86cd799439011",
@@ -100,7 +100,7 @@ describe("product.controller.addProductController", () => {
       body: {
         name: "Test Product",
         category: "Electronics",
-        price: 999,
+        sellingPrice: 999, buyingPrice: 999,
         store: "507f1f77bcf86cd799439011",
       },
       user: {
@@ -139,7 +139,7 @@ describe("product.controller.addProductController", () => {
       body: {
         name: "Duplicate Product",
         category: "Electronics",
-        price: 999,
+        sellingPrice: 999, buyingPrice: 999,
         storeId: "507f1f77bcf86cd799439011",
       },
       user: {
@@ -173,7 +173,7 @@ describe("product.controller.addProductController", () => {
     const req = {
       body: {
         category: "Electronics",
-        price: 999,
+        sellingPrice: 999, buyingPrice: 999,
         storeId: "507f1f77bcf86cd799439011",
       },
       user: {
@@ -207,7 +207,7 @@ describe("product.controller.addProductController", () => {
       body: {
         name: "Test Product",
         category: "Electronics",
-        price: 999,
+        sellingPrice: 999, buyingPrice: 999,
         storeId: "507f1f77bcf86cd799439011",
       },
       user: {
@@ -252,7 +252,7 @@ describe("product.controller.getProductController", () => {
       _id: "507f1f77bcf86cd799439013",
       name: "Test Product",
       category: "Electronics",
-      price: 999,
+      sellingPrice: 999, buyingPrice: 999,
       isActive: true,
     };
 
@@ -340,7 +340,7 @@ describe("product.controller.updateProductController", () => {
       },
       body: {
         name: "Updated Product",
-        price: 1499,
+        sellingPrice: 999, buyingPrice: 1499,
         quantity: 25,
       },
     };
@@ -348,7 +348,7 @@ describe("product.controller.updateProductController", () => {
     const updatedProduct = {
       _id: "507f1f77bcf86cd799439013",
       name: "Updated Product",
-      price: 1499,
+      sellingPrice: 999, buyingPrice: 1499,
       quantity: 25,
       isActive: true,
     };
@@ -415,7 +415,7 @@ describe("product.controller.updateProductController", () => {
         id: "507f1f77bcf86cd799439013",
       },
       body: {
-        price: -100,
+        sellingPrice: 999, buyingPrice: -100,
       },
     };
 
@@ -543,13 +543,13 @@ describe("product.controller.getAllProductsController", () => {
       {
         _id: "507f1f77bcf86cd799439013",
         name: "Product 1",
-        price: 100,
+        sellingPrice: 999, buyingPrice: 100,
         isActive: true,
       },
       {
         _id: "507f1f77bcf86cd799439014",
         name: "Product 2",
-        price: 200,
+        sellingPrice: 999, buyingPrice: 200,
         isActive: true,
       },
     ];
@@ -669,7 +669,7 @@ describe("product.controller.getProductByBarcodeController", () => {
       _id: "507f1f77bcf86cd799439013",
       name: "Test Product",
       barcode: "123456789",
-      price: 999,
+      sellingPrice: 999, buyingPrice: 999,
       isActive: true,
     };
 

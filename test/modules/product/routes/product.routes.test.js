@@ -172,7 +172,7 @@ describe("product.routes POST /add_product", () => {
     const payload = {
       name: "New Product",
       category: "Electronics",
-      price: 999,
+      sellingPrice: 999, buyingPrice: 999,
       quantity: 10,
       storeId: "507f1f77bcf86cd799439011",
     };
@@ -417,7 +417,7 @@ describe("product.routes PUT /:id", () => {
     const productId = "507f1f77bcf86cd799439013";
     const updateData = {
       name: "Updated Product",
-      price: 1499,
+      sellingPrice: 999, buyingPrice: 1499,
     };
 
     const response = await request(app)
@@ -442,7 +442,7 @@ describe("product.routes PUT /:id", () => {
     const productId = "507f1f77bcf86cd799439013";
     const updateData = {
       name: "Updated Product",
-      price: 1499,
+      sellingPrice: 999, buyingPrice: 1499,
       quantity: 30,
     };
 
@@ -462,7 +462,7 @@ describe("product.routes PUT /:id", () => {
 
     const productId = "507f1f77bcf86cd799439013";
     const updateData = {
-      price: 999,
+      sellingPrice: 999, buyingPrice: 999,
     };
 
     const response = await request(app)

@@ -44,7 +44,7 @@ describe("product.service.addProduct", () => {
     const productData = {
       name: "Test Product",
       category: "Electronics",
-      price: 999,
+      sellingPrice: 999, buyingPrice: 999,
       quantity: 10,
       store: "507f1f77bcf86cd799439011",
       createdBy: "507f1f77bcf86cd799439012",
@@ -69,7 +69,7 @@ describe("product.service.addProduct", () => {
   test("throws 400 when name is missing", async () => {
     const productData = {
       category: "Electronics",
-      price: 999,
+      sellingPrice: 999, buyingPrice: 999,
       store: "507f1f77bcf86cd799439011",
       createdBy: "507f1f77bcf86cd799439012",
     };
@@ -92,7 +92,7 @@ describe("product.service.addProduct", () => {
   test("throws 400 when category is missing", async () => {
     const productData = {
       name: "Test Product",
-      price: 999,
+      sellingPrice: 999, buyingPrice: 999,
       store: "507f1f77bcf86cd799439011",
       createdBy: "507f1f77bcf86cd799439012",
     };
@@ -137,7 +137,7 @@ describe("product.service.addProduct", () => {
     const productData = {
       name: "Test Product",
       category: "Electronics",
-      price: 999,
+      sellingPrice: 999, buyingPrice: 999,
       createdBy: "507f1f77bcf86cd799439012",
     };
 
@@ -159,7 +159,7 @@ describe("product.service.addProduct", () => {
     const productData = {
       name: "Test Product",
       category: "Electronics",
-      price: 999,
+      sellingPrice: 999, buyingPrice: 999,
       store: "507f1f77bcf86cd799439011",
     };
 
@@ -181,7 +181,7 @@ describe("product.service.addProduct", () => {
     const productData = {
       name: "Duplicate Product",
       category: "Electronics",
-      price: 999,
+      sellingPrice: 999, buyingPrice: 999,
       store: "507f1f77bcf86cd799439011",
       createdBy: "507f1f77bcf86cd799439012",
     };
@@ -211,7 +211,7 @@ describe("product.service.addProduct", () => {
     const productData = {
       name: "New Product",
       category: "Electronics",
-      price: 999,
+      sellingPrice: 999, buyingPrice: 999,
       barcode: "123456789",
       store: "507f1f77bcf86cd799439011",
       createdBy: "507f1f77bcf86cd799439012",
@@ -244,7 +244,7 @@ describe("product.service.addProduct", () => {
     const productData = {
       name: "Product Without Barcode",
       category: "Electronics",
-      price: 999,
+      sellingPrice: 999, buyingPrice: 999,
       barcode: "",
       store: "507f1f77bcf86cd799439011",
       createdBy: "507f1f77bcf86cd799439012",
@@ -269,7 +269,7 @@ describe("product.service.addProduct", () => {
     const productData = {
       name: "Complete Product",
       category: "Electronics",
-      price: 1999,
+      sellingPrice: 999, buyingPrice: 1999,
       quantity: 50,
       unit: "Boxes",
       barcode: "987654321",
@@ -305,7 +305,7 @@ describe("product.service.getProductById", () => {
       _id: productId,
       name: "Test Product",
       category: "Electronics",
-      price: 999,
+      sellingPrice: 999, buyingPrice: 999,
       isActive: true,
     };
 
@@ -362,14 +362,14 @@ describe("product.service.updateProductById", () => {
     const productId = "507f1f77bcf86cd799439013";
     const updateData = {
       name: "Updated Product",
-      price: 1499,
+      sellingPrice: 999, buyingPrice: 1499,
       quantity: 25,
     };
 
     const mockProduct = {
       _id: productId,
       name: "Test Product",
-      price: 999,
+      sellingPrice: 999, buyingPrice: 999,
       quantity: 10,
       set: jest.fn(),
       save: jest.fn(),
@@ -416,7 +416,7 @@ describe("product.service.updateProductById", () => {
     const productId = "507f1f77bcf86cd799439013";
     const updateData = {
       name: "New Name",
-      price: 2999,
+      sellingPrice: 999, buyingPrice: 2999,
       quantity: 100,
       category: "New Category",
       barcode: "111222333",
@@ -440,7 +440,7 @@ describe("product.service.updateProductById", () => {
   test("propagates validation errors from save", async () => {
     const productId = "507f1f77bcf86cd799439013";
     const updateData = {
-      price: -100, // Invalid negative price
+      sellingPrice: 999, buyingPrice: -100, // Invalid negative price
     };
 
     const mockProduct = {
@@ -570,14 +570,14 @@ describe("product.service.getAllProducts", () => {
       {
         _id: "507f1f77bcf86cd799439013",
         name: "Product 1",
-        price: 100,
+        sellingPrice: 999, buyingPrice: 100,
         isActive: true,
         store: storeId,
       },
       {
         _id: "507f1f77bcf86cd799439014",
         name: "Product 2",
-        price: 200,
+        sellingPrice: 999, buyingPrice: 200,
         isActive: true,
         store: storeId,
       },

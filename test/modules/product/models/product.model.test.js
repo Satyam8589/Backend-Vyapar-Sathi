@@ -6,7 +6,7 @@ describe("Product model", () => {
     const doc = new Product({
       name: "Test Product",
       category: "Electronics",
-      price: 999,
+      sellingPrice: 999, buyingPrice: 999,
       quantity: 10,
       store: new mongoose.Types.ObjectId(),
       createdBy: new mongoose.Types.ObjectId(),
@@ -25,7 +25,7 @@ describe("Product model", () => {
     const doc = new Product({
       name: "Test Product",
       category: "Electronics",
-      price: 999,
+      sellingPrice: 999, buyingPrice: 999,
       store: new mongoose.Types.ObjectId(),
       createdBy: new mongoose.Types.ObjectId(),
     });
@@ -38,7 +38,7 @@ describe("Product model", () => {
   test("rejects when product name is missing", () => {
     const doc = new Product({
       category: "Electronics",
-      price: 999,
+      sellingPrice: 999, buyingPrice: 999,
       store: new mongoose.Types.ObjectId(),
       createdBy: new mongoose.Types.ObjectId(),
     });
@@ -53,7 +53,7 @@ describe("Product model", () => {
   test("rejects when category is missing", () => {
     const doc = new Product({
       name: "Test Product",
-      price: 999,
+      sellingPrice: 999, buyingPrice: 999,
       store: new mongoose.Types.ObjectId(),
       createdBy: new mongoose.Types.ObjectId(),
     });
@@ -84,7 +84,7 @@ describe("Product model", () => {
     const doc = new Product({
       name: "Test Product",
       category: "Electronics",
-      price: 999,
+      sellingPrice: 999, buyingPrice: 999,
       createdBy: new mongoose.Types.ObjectId(),
     });
 
@@ -99,7 +99,7 @@ describe("Product model", () => {
     const doc = new Product({
       name: "Test Product",
       category: "Electronics",
-      price: 999,
+      sellingPrice: 999, buyingPrice: 999,
       store: new mongoose.Types.ObjectId(),
     });
 
@@ -113,7 +113,7 @@ describe("Product model", () => {
     const doc = new Product({
       name: "Test Product",
       category: "Electronics",
-      price: -100,
+      sellingPrice: 999, buyingPrice: -100,
       store: new mongoose.Types.ObjectId(),
       createdBy: new mongoose.Types.ObjectId(),
     });
@@ -129,7 +129,7 @@ describe("Product model", () => {
     const doc = new Product({
       name: "Free Product",
       category: "Electronics",
-      price: 0,
+      sellingPrice: 999, buyingPrice: 0,
       store: new mongoose.Types.ObjectId(),
       createdBy: new mongoose.Types.ObjectId(),
     });
@@ -144,7 +144,7 @@ describe("Product model", () => {
     const doc = new Product({
       name: "Test Product",
       category: "Electronics",
-      price: 999,
+      sellingPrice: 999, buyingPrice: 999,
       quantity: -10,
       store: new mongoose.Types.ObjectId(),
       createdBy: new mongoose.Types.ObjectId(),
@@ -161,7 +161,7 @@ describe("Product model", () => {
     const doc = new Product({
       name: "Out of Stock Product",
       category: "Electronics",
-      price: 999,
+      sellingPrice: 999, buyingPrice: 999,
       quantity: 0,
       store: new mongoose.Types.ObjectId(),
       createdBy: new mongoose.Types.ObjectId(),
@@ -177,7 +177,7 @@ describe("Product model", () => {
     const doc = new Product({
       name: "Test Product",
       category: "Electronics",
-      price: 999,
+      sellingPrice: 999, buyingPrice: 999,
       barcode: "123456789",
       store: new mongoose.Types.ObjectId(),
       createdBy: new mongoose.Types.ObjectId(),
@@ -193,7 +193,7 @@ describe("Product model", () => {
     const doc = new Product({
       name: "Test Product",
       category: "Electronics",
-      price: 999,
+      sellingPrice: 999, buyingPrice: 999,
       store: new mongoose.Types.ObjectId(),
       createdBy: new mongoose.Types.ObjectId(),
     });
@@ -208,7 +208,7 @@ describe("Product model", () => {
     const doc = new Product({
       name: "  Test Product  ",
       category: "Electronics",
-      price: 999,
+      sellingPrice: 999, buyingPrice: 999,
       store: new mongoose.Types.ObjectId(),
       createdBy: new mongoose.Types.ObjectId(),
     });
@@ -220,7 +220,7 @@ describe("Product model", () => {
     const doc = new Product({
       name: "Test Product",
       category: "  Electronics  ",
-      price: 999,
+      sellingPrice: 999, buyingPrice: 999,
       store: new mongoose.Types.ObjectId(),
       createdBy: new mongoose.Types.ObjectId(),
     });
@@ -232,7 +232,7 @@ describe("Product model", () => {
     const doc = new Product({
       name: "Test Product",
       category: "Electronics",
-      price: 999,
+      sellingPrice: 999, buyingPrice: 999,
       barcode: "  123456789  ",
       store: new mongoose.Types.ObjectId(),
       createdBy: new mongoose.Types.ObjectId(),
@@ -245,7 +245,7 @@ describe("Product model", () => {
     const doc = new Product({
       name: "Test Product",
       category: "Electronics",
-      price: 999,
+      sellingPrice: 999, buyingPrice: 999,
       unit: "  Boxes  ",
       store: new mongoose.Types.ObjectId(),
       createdBy: new mongoose.Types.ObjectId(),
@@ -258,7 +258,7 @@ describe("Product model", () => {
     const doc = new Product({
       name: "Test Product",
       category: "Groceries",
-      price: 50,
+      sellingPrice: 999, buyingPrice: 50,
       unit: "Kilograms",
       store: new mongoose.Types.ObjectId(),
       createdBy: new mongoose.Types.ObjectId(),
@@ -275,7 +275,7 @@ describe("Product model", () => {
     const doc = new Product({
       name: "Perishable Product",
       category: "Food",
-      price: 100,
+      sellingPrice: 999, buyingPrice: 100,
       expDate: expiryDate,
       store: new mongoose.Types.ObjectId(),
       createdBy: new mongoose.Types.ObjectId(),
@@ -291,7 +291,7 @@ describe("Product model", () => {
     const doc = new Product({
       name: "Non-Perishable Product",
       category: "Electronics",
-      price: 999,
+      sellingPrice: 999, buyingPrice: 999,
       store: new mongoose.Types.ObjectId(),
       createdBy: new mongoose.Types.ObjectId(),
     });
@@ -310,7 +310,7 @@ describe("Product model", () => {
     const doc = new Product({
       name: "Complete Product",
       category: "Electronics",
-      price: 1999,
+      sellingPrice: 999, buyingPrice: 1999,
       quantity: 50,
       unit: "Boxes",
       barcode: "987654321",
@@ -339,7 +339,7 @@ describe("Product model", () => {
     const doc = new Product({
       name: "Test Product",
       category: "Electronics",
-      price: 999,
+      sellingPrice: 999, buyingPrice: 999,
       store: "invalid-id",
       createdBy: new mongoose.Types.ObjectId(),
     });
@@ -354,7 +354,7 @@ describe("Product model", () => {
     const doc = new Product({
       name: "Test Product",
       category: "Electronics",
-      price: 999,
+      sellingPrice: 999, buyingPrice: 999,
       store: new mongoose.Types.ObjectId(),
       createdBy: "invalid-id",
     });
@@ -369,7 +369,7 @@ describe("Product model", () => {
     const doc = new Product({
       name: "Expensive Product",
       category: "Luxury",
-      price: 99999999,
+      sellingPrice: 999, buyingPrice: 99999999,
       store: new mongoose.Types.ObjectId(),
       createdBy: new mongoose.Types.ObjectId(),
     });
@@ -384,7 +384,7 @@ describe("Product model", () => {
     const doc = new Product({
       name: "Bulk Product",
       category: "Wholesale",
-      price: 10,
+      sellingPrice: 999, buyingPrice: 10,
       quantity: 1000000,
       store: new mongoose.Types.ObjectId(),
       createdBy: new mongoose.Types.ObjectId(),
@@ -400,7 +400,7 @@ describe("Product model", () => {
     const doc = new Product({
       name: "Test Product",
       category: "Electronics",
-      price: 99.99,
+      sellingPrice: 999, buyingPrice: 99.99,
       store: new mongoose.Types.ObjectId(),
       createdBy: new mongoose.Types.ObjectId(),
     });
@@ -415,7 +415,7 @@ describe("Product model", () => {
     const doc = new Product({
       name: "Inactive Product",
       category: "Electronics",
-      price: 999,
+      sellingPrice: 999, buyingPrice: 999,
       store: new mongoose.Types.ObjectId(),
       createdBy: new mongoose.Types.ObjectId(),
       isActive: false,
@@ -431,7 +431,7 @@ describe("Product model", () => {
     const doc = new Product({
       name: "Test Product",
       category: "Electronics",
-      price: 999,
+      sellingPrice: 999, buyingPrice: 999,
       store: new mongoose.Types.ObjectId(),
       createdBy: new mongoose.Types.ObjectId(),
     });
@@ -444,7 +444,7 @@ describe("Product model", () => {
     const doc = new Product({
       name: "Test Product",
       category: "Electronics",
-      price: 999,
+      sellingPrice: 999, buyingPrice: 999,
       expDate: "invalid-date",
       store: new mongoose.Types.ObjectId(),
       createdBy: new mongoose.Types.ObjectId(),
@@ -463,7 +463,7 @@ describe("Product model", () => {
     const doc = new Product({
       name: "Test Product",
       category: "Electronics",
-      price: 999,
+      sellingPrice: 999, buyingPrice: 999,
       store: storeId,
       createdBy: userId,
     });
@@ -478,7 +478,7 @@ describe("Product model", () => {
     const doc = new Product({
       name: "Test Product",
       category: "Electronics",
-      price: 999,
+      sellingPrice: 999, buyingPrice: 999,
       barcode: "",
       store: new mongoose.Types.ObjectId(),
       createdBy: new mongoose.Types.ObjectId(),
@@ -495,7 +495,7 @@ describe("Product model", () => {
     const doc = new Product({
       name: longName,
       category: "Electronics",
-      price: 999,
+      sellingPrice: 999, buyingPrice: 999,
       store: new mongoose.Types.ObjectId(),
       createdBy: new mongoose.Types.ObjectId(),
     });
@@ -510,7 +510,7 @@ describe("Product model", () => {
     const doc = new Product({
       name: "Test Product @ #$%^&*()",
       category: "Electronics",
-      price: 999,
+      sellingPrice: 999, buyingPrice: 999,
       store: new mongoose.Types.ObjectId(),
       createdBy: new mongoose.Types.ObjectId(),
     });
@@ -525,7 +525,7 @@ describe("Product model", () => {
     const doc = new Product({
       name: "Test Product 测试产品 🎉",
       category: "Electronics",
-      price: 999,
+      sellingPrice: 999, buyingPrice: 999,
       store: new mongoose.Types.ObjectId(),
       createdBy: new mongoose.Types.ObjectId(),
     });
