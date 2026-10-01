@@ -49,12 +49,15 @@ const normalizeCategoryName = (name) => {
 };
 
 export const getStoreSummary = async (storeId, range) => {
-  const [sales, totalProducts, lowStockCount, outOfStockCount] = await Promise.all([
+  const [sales, products, lowStockCount, outOfStockCount] = await Promise.all([
     fetchSalesInRange(storeId, range),
-    Product.countDocuments({ store: storeId, isActive: true }),
+    Product.find({ store: storeId }).select("buyingPrice isActive").lean(),
     Inventory.countDocuments({ store: storeId, isActive: true, isLowStock: true }),
     Inventory.countDocuments({ store: storeId, isActive: true, isOutOfStock: true }),
   ]);
+
+  const totalProducts = products.filter(p => p.isActive).length;
+  const productBuyingPriceMap = new Map(products.map(p => [String(p._id), p.buyingPrice]));
 
   let revenue = 0;
   let unitsSold = 0;
@@ -66,9 +69,12 @@ export const getStoreSummary = async (storeId, range) => {
 
     for (const item of sale.items || []) {
       unitsSold += Number(item.quantity || 0);
-      if (item.unitBuyingPrice != null) {
-        totalCost += Number(item.unitBuyingPrice) * Number(item.quantity || 0);
-      }
+      
+      const fallbackBuyingPrice = item.productId ? (productBuyingPriceMap.get(String(item.productId)) || 0) : 0;
+      const actualUnitBuyingPrice = item.unitBuyingPrice != null ? Number(item.unitBuyingPrice) : Number(fallbackBuyingPrice);
+      
+      totalCost += actualUnitBuyingPrice * Number(item.quantity || 0);
+
       if (item.productId) {
         soldProductIds.add(String(item.productId));
       }
