@@ -71,7 +71,8 @@ export const getStoreSummary = async (storeId, range) => {
       unitsSold += Number(item.quantity || 0);
       
       const fallbackBuyingPrice = item.productId ? (productBuyingPriceMap.get(String(item.productId)) || 0) : 0;
-      const actualUnitBuyingPrice = item.unitBuyingPrice != null ? Number(item.unitBuyingPrice) : Number(fallbackBuyingPrice);
+      const itemBuyingPrice = Number(item.unitBuyingPrice || 0);
+      const actualUnitBuyingPrice = itemBuyingPrice > 0 ? itemBuyingPrice : Number(fallbackBuyingPrice || 0);
       
       totalCost += actualUnitBuyingPrice * Number(item.quantity || 0);
 

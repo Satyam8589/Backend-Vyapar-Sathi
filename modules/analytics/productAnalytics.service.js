@@ -296,7 +296,8 @@ export const getProductOverview = async (storeId, productId, range, options = {}
         saleRevenue += Number(item.lineTotal || 0);
         
         const fallbackBuyingPrice = product ? Number(product.buyingPrice || 0) : 0;
-        const actualUnitBuyingPrice = item.unitBuyingPrice != null ? Number(item.unitBuyingPrice) : fallbackBuyingPrice;
+        const itemBuyingPrice = Number(item.unitBuyingPrice || 0);
+        const actualUnitBuyingPrice = itemBuyingPrice > 0 ? itemBuyingPrice : fallbackBuyingPrice;
         
         saleCost += actualUnitBuyingPrice * Number(item.quantity || 0);
         saleUnits += Number(item.quantity || 0);
@@ -369,17 +370,23 @@ export const getProductOverview = async (storeId, productId, range, options = {}
       );
       if (!item) return null;
       const fallbackBuyingPrice = product ? Number(product.buyingPrice || 0) : 0;
-      const actualUnitBuyingPrice = item.unitBuyingPrice != null ? Number(item.unitBuyingPrice) : fallbackBuyingPrice;
+      const itemBuyingPrice = Number(item.unitBuyingPrice || 0);
+      const actualUnitBuyingPrice = itemBuyingPrice > 0 ? itemBuyingPrice : fallbackBuyingPrice;
+
+      const unitSellingPrice = Number(item.unitPrice || 0);
+      const qty = Number(item.quantity || 0);
+      const revenue = Number(item.lineTotal || (unitSellingPrice * qty));
+      const profit = Number((unitSellingPrice - actualUnitBuyingPrice) * qty);
 
       return {
         id: sale._id,
         date: sale.completedAt,
         orderId: sale._id,
-        quantity: Number(item.quantity || 0),
-        sellingPrice: Number(item.unitPrice || 0),
+        quantity: qty,
+        sellingPrice: unitSellingPrice,
         buyingPrice: actualUnitBuyingPrice,
-        revenue: Number(item.lineTotal || 0),
-        profit: Number(((item.unitPrice || 0) - actualUnitBuyingPrice) * (item.quantity || 0)),
+        revenue: round(revenue),
+        profit: round(profit),
       };
     })
     .filter(Boolean);
