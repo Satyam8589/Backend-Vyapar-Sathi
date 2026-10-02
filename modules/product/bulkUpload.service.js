@@ -257,7 +257,7 @@ function parseExcelDate(val) {
  * 2. Checks Store Product (Local Store). If found, updates quantity, price & expDate according to stockUpdateMode.
  * 3. If not found in Store Product, creates Store Product & Inventory entries.
  */
-export const executeBulkProductUpload = async ({ storeId, userId, rows, columnMapping, stockUpdateMode = "add" }) => {
+export const executeBulkProductUpload = async ({ storeId, userId, rows, columnMapping = {}, stockUpdateMode = "add" }) => {
   if (!storeId) throw new ApiError("Store ID is required", 400);
   if (!userId) throw new ApiError("User ID is required", 400);
   if (!rows || !Array.isArray(rows) || rows.length === 0) {
@@ -273,21 +273,18 @@ export const executeBulkProductUpload = async ({ storeId, userId, rows, columnMa
     errors: [],
   };
 
-  const nameCol = columnMapping.name;
-  const barcodeCol = columnMapping.barcode;
-  const categoryCol = columnMapping.category;
-  const buyingPriceCol = columnMapping.buyingPrice;
-  const sellingPriceCol = columnMapping.sellingPrice;
-  const quantityCol = columnMapping.quantity;
-  const unitCol = columnMapping.unit;
-  const brandCol = columnMapping.brand;
-  const expDateCol = columnMapping.expDate;
+  const hasName = Boolean(columnMapping.name && String(columnMapping.name).trim());
+  const hasBarcode = Boolean(columnMapping.barcode && String(columnMapping.barcode).trim());
+  const hasCategory = Boolean(columnMapping.category && String(columnMapping.category).trim());
+  const hasBuyingPrice = Boolean(columnMapping.buyingPrice && String(columnMapping.buyingPrice).trim());
+  const hasSellingPrice = Boolean(columnMapping.sellingPrice && String(columnMapping.sellingPrice).trim());
+  const hasQuantity = Boolean(columnMapping.quantity && String(columnMapping.quantity).trim());
+  const hasUnit = Boolean(columnMapping.unit && String(columnMapping.unit).trim());
+  const hasBrand = Boolean(columnMapping.brand && String(columnMapping.brand).trim());
+  const hasExpDate = Boolean(columnMapping.expDate && String(columnMapping.expDate).trim());
 
-  if (!nameCol || !sellingPriceCol || !buyingPriceCol || !quantityCol) {
-    throw new ApiError(
-      "Missing critical mappings. 'Product Name', 'Buying Price', 'Selling Price', and 'Quantity' must be mapped.",
-      400
-    );
+  if (!hasName) {
+    throw new ApiError("Product Name column must be mapped.", 400);
   }
 
   // Pre-deduplicate rows in uploaded batch by Barcode / Name to prevent unique constraint race conditions
@@ -295,8 +292,8 @@ export const executeBulkProductUpload = async ({ storeId, userId, rows, columnMa
 
   for (let idx = 0; idx < rows.length; idx++) {
     const rawRow = rows[idx];
-    const rawName = cleanString(rawRow[nameCol]);
-    const rawBarcode = cleanString(rawRow[barcodeCol]);
+    const rawName = hasName ? cleanString(rawRow[columnMapping.name]) : null;
+    const rawBarcode = hasBarcode ? cleanString(rawRow[columnMapping.barcode]) : null;
 
     if (!rawName) {
       results.failed++;
@@ -304,28 +301,38 @@ export const executeBulkProductUpload = async ({ storeId, userId, rows, columnMa
       continue;
     }
 
-    const sellingPrice = cleanNumber(rawRow[sellingPriceCol], -1);
-    const buyingPrice = cleanNumber(rawRow[buyingPriceCol], -1);
-    if (sellingPrice < 0 || buyingPrice < 0) {
+    const sellingPrice = hasSellingPrice ? cleanNumber(rawRow[columnMapping.sellingPrice], -1) : null;
+    const buyingPrice = hasBuyingPrice ? cleanNumber(rawRow[columnMapping.buyingPrice], -1) : null;
+
+    if (hasSellingPrice && (sellingPrice === null || sellingPrice < 0)) {
       results.failed++;
-      results.errors.push({ rowNumber: idx + 2, product: rawName, error: "Invalid or missing selling/buying price" });
+      results.errors.push({ rowNumber: idx + 2, product: rawName, error: "Invalid selling price" });
       continue;
     }
 
-    const qty = cleanNumber(rawRow[quantityCol], 0);
-    const category = cleanString(rawRow[categoryCol], "General");
-    const unit = cleanString(rawRow[unitCol], "Pieces");
-    const brand = cleanString(rawRow[brandCol], null);
-    const expDate = parseExcelDate(rawRow[expDateCol]);
+    if (hasBuyingPrice && (buyingPrice === null || buyingPrice < 0)) {
+      results.failed++;
+      results.errors.push({ rowNumber: idx + 2, product: rawName, error: "Invalid buying price" });
+      continue;
+    }
+
+    const qty = hasQuantity ? cleanNumber(rawRow[columnMapping.quantity], 0) : null;
+    const category = hasCategory ? cleanString(rawRow[columnMapping.category], null) : null;
+    const unit = hasUnit ? cleanString(rawRow[columnMapping.unit], null) : null;
+    const brand = hasBrand ? cleanString(rawRow[columnMapping.brand], null) : null;
+    const expDate = hasExpDate ? parseExcelDate(rawRow[columnMapping.expDate]) : null;
 
     const key = rawBarcode ? `barcode:${rawBarcode}` : `name:${rawName.toLowerCase()}`;
 
     if (aggregatedMap.has(key)) {
       const existing = aggregatedMap.get(key);
-      existing.quantity += qty;
-      existing.sellingPrice = sellingPrice; 
-      existing.buyingPrice = buyingPrice;
-      if (expDate) existing.expDate = expDate;
+      if (qty !== null) existing.quantity = (existing.quantity || 0) + qty;
+      if (sellingPrice !== null) existing.sellingPrice = sellingPrice; 
+      if (buyingPrice !== null) existing.buyingPrice = buyingPrice;
+      if (category !== null) existing.category = category;
+      if (unit !== null) existing.unit = unit;
+      if (brand !== null) existing.brand = brand;
+      if (expDate !== null) existing.expDate = expDate;
     } else {
       aggregatedMap.set(key, {
         rowNumber: idx + 2,
@@ -354,14 +361,13 @@ export const executeBulkProductUpload = async ({ storeId, userId, rows, columnMa
             masterProd = await MasterProduct.create({
               barcode: item.barcode,
               name: item.name,
-              brand: item.brand,
-              category: item.category,
-              quantity: item.unit,
+              brand: item.brand || null,
+              category: item.category || "General",
+              quantity: item.unit || "Pieces",
               source: "bulk_excel_upload",
             });
             results.masterAdded++;
           } catch (mErr) {
-            // In case of parallel insertion duplicate barcode
             masterProd = await MasterProduct.findOne({ barcode: item.barcode });
           }
         }
@@ -382,34 +388,56 @@ export const executeBulkProductUpload = async ({ storeId, userId, rows, columnMa
       }
 
       if (storeProd) {
-        // Product already exists in this store -> Determine new quantity based on stockUpdateMode
-        const finalQuantity = stockUpdateMode === "replace" || stockUpdateMode === "set"
-          ? item.quantity
-          : storeProd.quantity + item.quantity;
+        // Product already exists in this store -> ONLY UPDATE MAPPED & NON-NULL FIELDS
+        if (hasQuantity && item.quantity !== null) {
+          const finalQuantity = stockUpdateMode === "replace" || stockUpdateMode === "set"
+            ? item.quantity
+            : (storeProd.quantity || 0) + item.quantity;
+          storeProd.quantity = finalQuantity;
+        }
 
-        storeProd.quantity = finalQuantity;
-        storeProd.sellingPrice = item.sellingPrice;
-        storeProd.buyingPrice = item.buyingPrice;
-        if (item.expDate) {
+        if (hasSellingPrice && item.sellingPrice !== null) {
+          storeProd.sellingPrice = item.sellingPrice;
+        }
+
+        if (hasBuyingPrice && item.buyingPrice !== null) {
+          storeProd.buyingPrice = item.buyingPrice;
+        }
+
+        if (hasCategory && item.category !== null) {
+          storeProd.category = item.category;
+        }
+
+        if (hasBrand && item.brand !== null) {
+          storeProd.brand = item.brand;
+        }
+
+        if (hasUnit && item.unit !== null) {
+          storeProd.unit = item.unit;
+        }
+
+        if (hasExpDate && item.expDate !== null) {
           storeProd.expDate = item.expDate;
         }
-        if (item.barcode && !storeProd.barcode) {
+
+        if (hasBarcode && item.barcode !== null && !storeProd.barcode) {
           storeProd.barcode = item.barcode;
         }
+
         await storeProd.save();
 
-        // Update Inventory table and recalculate stock status flags (isLowStock / isOutOfStock)
+        // Update Inventory record
         let inv = await Inventory.findOne({ store: storeId, product: storeProd._id });
         if (inv) {
-          inv.quantity = finalQuantity;
-          inv.sellingPrice = item.sellingPrice;
+          if (hasQuantity && item.quantity !== null) inv.quantity = storeProd.quantity;
+          if (hasSellingPrice && item.sellingPrice !== null) inv.sellingPrice = storeProd.sellingPrice;
           await inv.save();
         } else {
           inv = new Inventory({
             store: storeId,
             product: storeProd._id,
-            quantity: finalQuantity,
-            sellingPrice: item.sellingPrice,
+            quantity: storeProd.quantity || 0,
+            sellingPrice: storeProd.sellingPrice || 0,
           });
           await inv.save();
         }
@@ -417,16 +445,20 @@ export const executeBulkProductUpload = async ({ storeId, userId, rows, columnMa
         results.updated++;
       } else {
         // Product does not exist in store -> Add to Store Product & Inventory
+        const newSellingPrice = item.sellingPrice !== null ? item.sellingPrice : 0;
+        const newBuyingPrice = item.buyingPrice !== null ? item.buyingPrice : 0;
+        const newQuantity = item.quantity !== null ? item.quantity : 0;
+
         const newProd = await Product.create({
           name: item.name,
           brand: item.brand || masterProd?.brand || null,
-          barcode: item.barcode,
+          barcode: item.barcode || null,
           category: item.category || masterProd?.category || "General",
-          sellingPrice: item.sellingPrice,
-          buyingPrice: item.buyingPrice,
-          quantity: item.quantity,
-          unit: item.unit,
-          expDate: item.expDate,
+          sellingPrice: newSellingPrice,
+          buyingPrice: newBuyingPrice,
+          quantity: newQuantity,
+          unit: item.unit || "Pieces",
+          expDate: item.expDate || null,
           store: storeId,
           createdBy: userId,
         });
@@ -434,8 +466,8 @@ export const executeBulkProductUpload = async ({ storeId, userId, rows, columnMa
         const newInv = new Inventory({
           store: storeId,
           product: newProd._id,
-          quantity: item.quantity,
-          sellingPrice: item.sellingPrice,
+          quantity: newQuantity,
+          sellingPrice: newSellingPrice,
         });
         await newInv.save();
 
