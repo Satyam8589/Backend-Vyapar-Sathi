@@ -108,7 +108,7 @@ const purchaseSchema = new mongoose.Schema({
 purchaseSchema.index({ store: 1, invoiceNumber: 1 }, { unique: true });
 purchaseSchema.index({ store: 1, purchaseDate: -1 });
 
-purchaseSchema.pre('save', function(next) {
+purchaseSchema.pre('save', function() {
     if (this.paidAmount >= this.grandTotal) {
         this.paymentStatus = 'paid';
     } else if (this.paidAmount > 0) {
@@ -119,8 +119,6 @@ purchaseSchema.pre('save', function(next) {
     
     // Automatically calculate due amount
     this.dueAmount = Math.max(0, this.grandTotal - this.paidAmount);
-    
-    next();
 });
 
 const Purchase = mongoose.model("Purchase", purchaseSchema);

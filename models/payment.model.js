@@ -67,7 +67,7 @@ const paymentSchema = new mongoose.Schema({
 });
 
 // Validate that either seller or buyer is provided, but not both
-paymentSchema.pre('validate', function(next) {
+paymentSchema.pre('validate', function() {
     if (!this.seller && !this.buyer) {
         this.invalidate('seller', 'Either seller or buyer must be provided');
     }
@@ -82,8 +82,6 @@ paymentSchema.pre('validate', function(next) {
     if (this.seller && this.transactionType !== 'payment_out') {
         this.invalidate('transactionType', 'Seller payments must be of type payment_out');
     }
-    
-    next();
 });
 
 const Payment = mongoose.model("Payment", paymentSchema);

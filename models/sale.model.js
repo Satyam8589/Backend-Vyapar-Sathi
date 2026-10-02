@@ -143,7 +143,7 @@ saleSchema.index({ store: 1, completedAt: -1 });
 saleSchema.index({ "items.productId": 1, completedAt: -1 });
 saleSchema.index({ store: 1, buyer: 1 });
 
-saleSchema.pre('save', function(next) {
+saleSchema.pre('save', function() {
     if (this.isNew && this.paidAmount === 0 && this.paymentStatus === 'paid') {
        // Backward compatibility for existing logic
        this.paidAmount = this.totalAmount;
@@ -159,8 +159,6 @@ saleSchema.pre('save', function(next) {
     
     // Automatically calculate due amount
     this.dueAmount = Math.max(0, this.totalAmount - this.paidAmount);
-    
-    next();
 });
 
 const Sale = mongoose.model("Sale", saleSchema);
