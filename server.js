@@ -10,12 +10,15 @@ const HOST = "0.0.0.0";
 const server = http.createServer(app);
 
 // Proxy configuration for FastAPI AI Service (WebSockets)
-const aiServiceUrl = process.env.AI_SERVICE_URL || "http://127.0.0.1:8080";
+const aiServiceUrl = process.env.AI_SERVICE_URL || "http://127.0.0.1:8000";
+
+console.log("[AI Proxy] Configured target AI_SERVICE_URL:", aiServiceUrl);
 
 const aiProxy = createProxyMiddleware({
     target: aiServiceUrl,
     changeOrigin: true,
     ws: true,
+    secure: false,
     on: {
         error: (err, req, res) => {
             console.error("[AI Proxy Error]", err.message);
