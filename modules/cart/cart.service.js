@@ -59,23 +59,26 @@ export const addItemToCart = async (cartId, productId, quantity = 1) => {
   if (product.quantity < quantity)
     throw new ApiError(400, "Insufficient stock");
 
+  const productPrice = Number(product.sellingPrice ?? product.price ?? 0);
+
   const itemIndex = cart.products.findIndex(
     (p) => p.product.toString() === productId,
   );
 
   if (itemIndex > -1) {
     cart.products[itemIndex].quantity += quantity;
+    cart.products[itemIndex].price = productPrice;
   } else {
     cart.products.push({
       product: productId,
       quantity,
-      price: product.price,
+      price: productPrice,
     });
   }
 
-  // Recalculate total price
+  // Recalculate total price safely
   cart.totalPrice = cart.products.reduce(
-    (acc, curr) => acc + curr.price * curr.quantity,
+    (acc, curr) => acc + (Number(curr.price) || 0) * (Number(curr.quantity) || 0),
     0,
   );
 
