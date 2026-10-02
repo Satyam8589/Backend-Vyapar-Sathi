@@ -17,6 +17,13 @@ export const createCart = async (cartData) => {
     });
 
     if (cart) {
+      cart.products = [];
+      cart.totalPrice = 0;
+      cart.subtotal = 0;
+      cart.discount = { type: "fixed", value: 0, amount: 0 };
+      cart.status = "open";
+      cart.paymentStatus = "pending";
+      await cart.save();
       return cart;
     }
 
