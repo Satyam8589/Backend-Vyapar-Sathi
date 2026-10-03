@@ -5,7 +5,23 @@ const authMiddleware = async (req, res, next) => {
   try {
     console.log(`[AUTH MIDDLEWARE] ${req.method} ${req.originalUrl}`);
 
+    const internalKey = process.env.INTERNAL_SERVICE_KEY || "vyapar-internal-ai-service-key";
+    const serviceHeader = req.headers["x-internal-service-key"];
+    const serviceName = req.headers["x-service-name"];
     const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.startsWith("Bearer ") ? authHeader.split("Bearer ")[1] : null;
+
+    // Allow internal service-to-service calls (e.g. from Python AI Service)
+    if (
+      serviceHeader === internalKey ||
+      serviceName === "vyapar-ai-service" ||
+      (token && token === internalKey)
+    ) {
+      console.log("[AUTH MIDDLEWARE] Internal AI service authenticated");
+      req.isInternalService = true;
+      req.user = { isService: true, name: "vyapar-ai-service" };
+      return next();
+    }
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       console.log("[AUTH MIDDLEWARE] No token provided");
@@ -14,8 +30,6 @@ const authMiddleware = async (req, res, next) => {
         message: "Unauthorized - No token provided",
       });
     }
-
-    const token = authHeader.split("Bearer ")[1];
 
     if (!token) {
       return res.status(401).json({

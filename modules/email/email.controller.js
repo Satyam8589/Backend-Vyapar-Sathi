@@ -5,7 +5,7 @@ const isValidEmail = (value) =>
 
 export const sendEmail = async (req, res) => {
   try {
-    const { to, subject, text, html } = req.body;
+    const { to, subject, text, html, attachments } = req.body;
 
     if (!isValidEmail(to)) {
       return res.status(400).json({
@@ -21,13 +21,29 @@ export const sendEmail = async (req, res) => {
       });
     }
 
-    await transporter.sendMail({
-      from: process.env.GMAIL_USER,
-      to,
-      subject,
-      ...(text ? { text } : {}),
-      ...(html ? { html } : {}),
-    });
+    const fromAddress = process.env.EMAIL_FROM || process.env.GMAIL_USER || "Vyapar Sathi <onboarding@resend.dev>";
+
+    if (transporter && typeof transporter.sendMail === "function") {
+      await transporter.sendMail({
+        from: fromAddress,
+        to,
+        subject,
+        ...(text ? { text } : {}),
+        ...(html ? { html } : {}),
+        ...(attachments ? { attachments } : {}),
+      });
+    } else if (transporter && transporter.emails && typeof transporter.emails.send === "function") {
+      await transporter.emails.send({
+        from: fromAddress,
+        to,
+        subject,
+        ...(text ? { text } : {}),
+        ...(html ? { html } : {}),
+        ...(attachments ? { attachments } : {}),
+      });
+    } else {
+      throw new Error("No configured mail transporter or Resend client available");
+    }
 
     return res.status(200).json({
       success: true,
@@ -38,7 +54,7 @@ export const sendEmail = async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: "Email sending failed",
+      message: `Email sending failed: ${error.message}`,
     });
   }
 };
@@ -54,19 +70,30 @@ export const sendTestEmail = async (req, res) => {
       });
     }
 
-    await transporter.sendMail({
-      from: process.env.GMAIL_USER,
-      to,
-      subject: "VyaparSathi Test Email",
-      text: "Hello! This is a test email from VyaparSathi.",
-    });
+    const fromAddress = process.env.EMAIL_FROM || process.env.GMAIL_USER || "Vyapar Sathi <onboarding@resend.dev>";
+
+    if (transporter && typeof transporter.sendMail === "function") {
+      await transporter.sendMail({
+        from: fromAddress,
+        to,
+        subject: "VyaparSathi Test Email",
+        text: "Hello! This is a test email from VyaparSathi.",
+      });
+    } else if (transporter && transporter.emails && typeof transporter.emails.send === "function") {
+      await transporter.emails.send({
+        from: fromAddress,
+        to,
+        subject: "VyaparSathi Test Email",
+        text: "Hello! This is a test email from VyaparSathi.",
+      });
+    }
 
     res.status(200).json({
       success: true,
       message: "Email sent successfully",
     });
   } catch (error) {
-    console.error("Email Error:", error);
+    console.error("Email Error:", error.message);
 
     res.status(500).json({
       success: false,
