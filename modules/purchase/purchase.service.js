@@ -82,17 +82,31 @@ export const updatePurchase = async (purchaseId, updateData, storeId) => {
   const purchase = await Purchase.findOne({ _id: purchaseId, store: storeId });
   
   if (!purchase) {
-    throw new AppError("Purchase not found", 404);
+    throw new ApiError("Purchase not found", 404);
   }
 
-  // Note: Complex updates to items would require reverting previous stock and adding new stock.
-  // For simplicity here, we'll mostly support updating payment status, paidAmount, etc.
   if (updateData.paidAmount !== undefined) {
     purchase.paidAmount = updateData.paidAmount;
+    purchase.dueAmount = Math.max(0, purchase.grandTotal - purchase.paidAmount);
+    if (purchase.paidAmount >= purchase.grandTotal) {
+      purchase.paymentStatus = 'paid';
+    } else if (purchase.paidAmount > 0) {
+      purchase.paymentStatus = 'partial';
+    } else {
+      purchase.paymentStatus = 'unpaid';
+    }
+  }
+
+  if (updateData.paymentStatus !== undefined) {
+    purchase.paymentStatus = updateData.paymentStatus;
   }
   
   if (updateData.notes !== undefined) {
     purchase.notes = updateData.notes;
+  }
+
+  if (updateData.invoiceNumber !== undefined) {
+    purchase.invoiceNumber = updateData.invoiceNumber;
   }
 
   await purchase.save();
@@ -103,13 +117,13 @@ export const deletePurchase = async (purchaseId, storeId) => {
   const purchase = await Purchase.findOne({ _id: purchaseId, store: storeId });
   
   if (!purchase) {
-    throw new AppError("Purchase not found", 404);
+    throw new ApiError("Purchase not found", 404);
   }
 
   // Revert product stock
   for (const item of purchase.items) {
     await Product.findByIdAndUpdate(item.product, {
-      $inc: { stock: -item.quantity }
+      $inc: { stock: -item.quantity, quantity: -item.quantity }
     });
   }
 
