@@ -9,6 +9,17 @@ export const createPurchase = async (purchaseData, storeId) => {
     throw new ApiError("Purchase must have at least one item", 400);
   }
 
+  const productIds = items.map((item) => item.product);
+  const storeProducts = await Product.find({
+    _id: { $in: productIds },
+    store: storeId,
+    isActive: true
+  }).select("_id");
+
+  if (storeProducts.length !== new Set(productIds.map(String)).size) {
+    throw new ApiError("All purchase products must belong to this store", 400);
+  }
+
   // Calculate totals if not provided correctly, but assuming provided for now.
   const purchase = new Purchase({
     ...purchaseData,
@@ -20,7 +31,7 @@ export const createPurchase = async (purchaseData, storeId) => {
   // Update product stock
   for (const item of items) {
     await Product.findByIdAndUpdate(item.product, {
-      $inc: { stock: item.quantity }
+      $inc: { quantity: item.quantity }
     });
   }
 
@@ -82,7 +93,7 @@ export const updatePurchase = async (purchaseId, updateData, storeId) => {
   const purchase = await Purchase.findOne({ _id: purchaseId, store: storeId });
   
   if (!purchase) {
-    throw new AppError("Purchase not found", 404);
+    throw new ApiError("Purchase not found", 404);
   }
 
   // Note: Complex updates to items would require reverting previous stock and adding new stock.
@@ -103,13 +114,13 @@ export const deletePurchase = async (purchaseId, storeId) => {
   const purchase = await Purchase.findOne({ _id: purchaseId, store: storeId });
   
   if (!purchase) {
-    throw new AppError("Purchase not found", 404);
+    throw new ApiError("Purchase not found", 404);
   }
 
   // Revert product stock
   for (const item of purchase.items) {
     await Product.findByIdAndUpdate(item.product, {
-      $inc: { stock: -item.quantity }
+      $inc: { quantity: -item.quantity }
     });
   }
 
