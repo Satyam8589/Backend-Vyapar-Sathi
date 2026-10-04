@@ -68,6 +68,17 @@ export const updateProductById = async (productId, productData) => {
         if (!product) {
             throw new ApiError("Product not found", 404);
         }
+        if (productData.addQuantity !== undefined && productData.addQuantity !== null) {
+            const delta = Number(productData.addQuantity) || 0;
+            product.quantity = Math.max(0, (product.quantity || 0) + delta);
+            delete productData.addQuantity;
+            delete productData.quantity;
+        } else if (productData.quantityDelta !== undefined && productData.quantityDelta !== null) {
+            const delta = Number(productData.quantityDelta) || 0;
+            product.quantity = Math.max(0, (product.quantity || 0) + delta);
+            delete productData.quantityDelta;
+            delete productData.quantity;
+        }
         product.set(productData);
         await product.save();
         return product;

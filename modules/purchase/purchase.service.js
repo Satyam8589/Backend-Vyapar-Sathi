@@ -263,6 +263,22 @@ export const updatePurchase = async (purchaseId, updateData, storeId) => {
     }
   }
 
+  if (updateData.paidAmount !== undefined) {
+    purchase.paidAmount = updateData.paidAmount;
+    purchase.dueAmount = Math.max(0, purchase.grandTotal - purchase.paidAmount);
+    if (purchase.paidAmount >= purchase.grandTotal) {
+      purchase.paymentStatus = 'paid';
+    } else if (purchase.paidAmount > 0) {
+      purchase.paymentStatus = 'partial';
+    } else {
+      purchase.paymentStatus = 'unpaid';
+    }
+  }
+
+  if (updateData.paymentStatus !== undefined) {
+    purchase.paymentStatus = updateData.paymentStatus;
+  }
+
   // Update fields while preventing storeId overwrite
   Object.assign(purchase, updateData);
   purchase.store = storeId;
@@ -279,6 +295,10 @@ export const updatePurchase = async (purchaseId, updateData, storeId) => {
           purchase.paymentStatus = 'pending';
           purchase.dueAmount = purchase.grandTotal;
       }
+  }
+
+  if (updateData.invoiceNumber !== undefined) {
+    purchase.invoiceNumber = updateData.invoiceNumber;
   }
 
   await purchase.save();
