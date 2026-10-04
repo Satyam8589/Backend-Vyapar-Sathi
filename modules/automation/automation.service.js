@@ -176,7 +176,7 @@ export const executeAutomationWorkflow = async (automationId) => {
                         }));
 
                         await sendLowStockNotificationEmail(recipientEmail, {
-                            storeName: automation.store?.storeName || automation.store?.name || "Vyapar Sathi Store",
+                            storeName: automation.store?.storeName || automation.store?.name || "Vyapar Sakha Store",
                             storeId: storeId,
                             lowStockThreshold: automation.config?.threshold || 10,
                             lowStockProducts: formattedProducts,
@@ -186,11 +186,11 @@ export const executeAutomationWorkflow = async (automationId) => {
                         // Send healthy inventory notification so recipient receives email status confirmation
                         await sendMailWithRetry({
                             to: recipientEmail,
-                            subject: `✅ Inventory Health Status - ${automation.store?.storeName || automation.store?.name || "Vyapar Sathi"}`,
+                            subject: `✅ Inventory Health Status - ${automation.store?.storeName || automation.store?.name || "Vyapar Sakha"}`,
                             html: `<div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 24px; background: #ffffff; border-radius: 12px; border: 1px solid #cbd5e1; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
                                 <div style="background: linear-gradient(135deg, #059669, #10b981); padding: 20px; border-radius: 8px; color: #ffffff; text-align: center; margin-bottom: 20px;">
                                     <h2 style="margin: 0;">✅ All Inventory Healthy</h2>
-                                    <p style="margin: 5px 0 0 0; opacity: 0.9; font-size: 13px;">${automation.store?.storeName || automation.store?.name || "Vyapar Sathi Store"}</p>
+                                    <p style="margin: 5px 0 0 0; opacity: 0.9; font-size: 13px;">${automation.store?.storeName || automation.store?.name || "Vyapar Sakha Store"}</p>
                                 </div>
                                 <div style="font-size: 14px; color: #334155; line-height: 1.6;">
                                     <p>Good news! All products in your inventory are currently well stocked above minimum thresholds.</p>
@@ -219,11 +219,11 @@ export const executeAutomationWorkflow = async (automationId) => {
                 if (recipientEmail) {
                     await sendMailWithRetry({
                         to: recipientEmail,
-                        subject: `📊 Daily Sales Summary Report - ${automation.store?.storeName || automation.store?.name || "Vyapar Sathi"}`,
+                        subject: `📊 Daily Sales Summary Report - ${automation.store?.storeName || automation.store?.name || "Vyapar Sakha"}`,
                         html: `<div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 24px; background: #ffffff; border-radius: 12px; border: 1px solid #cbd5e1; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
                             <div style="background: linear-gradient(135deg, #2563eb, #4f46e5); padding: 20px; border-radius: 8px; color: #ffffff; text-align: center; margin-bottom: 20px;">
                                 <h2 style="margin: 0;">📊 Sales Summary Report</h2>
-                                <p style="margin: 5px 0 0 0; opacity: 0.9; font-size: 13px;">${automation.store?.storeName || automation.store?.name || "Vyapar Sathi Store"}</p>
+                                <p style="margin: 5px 0 0 0; opacity: 0.9; font-size: 13px;">${automation.store?.storeName || automation.store?.name || "Vyapar Sakha Store"}</p>
                             </div>
                             <div style="font-size: 14px; color: #334155; line-height: 1.6;">
                                 <p>🕒 <strong>Report Generated:</strong> ${istTimeStr} IST</p>

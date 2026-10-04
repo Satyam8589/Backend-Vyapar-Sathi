@@ -4,7 +4,7 @@ import { ApiError } from "../../utils/ApiError.js";
 import mongoose from "mongoose";
 
 /**
- * Target form fields available in Vyapar Sathi
+ * Target form fields available in Vyapar Sakha
  */
 export const TARGET_FIELDS = [
   { key: "name", label: "Product Name", required: true },
@@ -92,7 +92,7 @@ export const analyzeExcelHeadersWithGemini = async (headers = [], sampleRows = [
     });
 
     const prompt = `
-You are an intelligent data-mapping assistant for Vyapar Sathi inventory management system.
+You are an intelligent data-mapping assistant for Vyapar Sakha inventory management system.
 Analyze the provided Excel column headers and the first few sample rows.
 Map each column header to our target form fields:
 

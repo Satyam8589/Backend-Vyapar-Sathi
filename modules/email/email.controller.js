@@ -22,7 +22,7 @@ export const sendEmail = async (req, res) => {
     }
 
     const rawFrom = process.env.MAIL_FROM_ADDRESS || process.env.EMAIL_FROM || process.env.GMAIL_USER || "noreply@api.vyaparsathi.udittiwari.in";
-    const fromAddress = rawFrom.includes("<") ? rawFrom : `Vyapar Sathi <${rawFrom}>`;
+    const fromAddress = rawFrom.includes("<") ? rawFrom : `Vyapar Sakha <${rawFrom}>`;
 
     let emailId = null;
 
@@ -89,13 +89,13 @@ export const sendTestEmail = async (req, res) => {
     }
 
     const rawFrom = process.env.MAIL_FROM_ADDRESS || process.env.EMAIL_FROM || process.env.GMAIL_USER || "noreply@api.vyaparsathi.udittiwari.in";
-    const fromAddress = rawFrom.includes("<") ? rawFrom : `Vyapar Sathi <${rawFrom}>`;
+    const fromAddress = rawFrom.includes("<") ? rawFrom : `Vyapar Sakha <${rawFrom}>`;
 
     if (transporter && typeof transporter.sendMail === "function") {
       await transporter.sendMail({
         from: fromAddress,
         to,
-        subject: "VyaparSathi Test Email",
+        subject: "VyaparSakha Test Email",
         text: "Hello! This is a test email from VyaparSathi.",
       });
     } else if (transporter && transporter.emails && typeof transporter.emails.send === "function") {

@@ -22,7 +22,7 @@ const getResendClient = () => {
  * The "from" address used for all outgoing emails.
  * Reads MAIL_FROM_ADDRESS from env; defaults to the Resend sandbox address.
  */
-const getFromAddress = (label = "Vyapar Sathi") => {
+const getFromAddress = (label = "Vyapar Sakha") => {
   const address =
     process.env.MAIL_FROM_ADDRESS?.trim() || "onboarding@resend.dev";
   return `"${label}" <${address}>`;
@@ -141,7 +141,7 @@ export const sendInviteEmail = async (
         <div class="body">
           <p style="color:#374151;font-size:15px;">Hi there,</p>
           <p style="color:#374151;font-size:15px;">
-            <strong>${ownerName}</strong> has invited you to join their store on <strong>Vyapar Sathi</strong>.
+            <strong>${ownerName}</strong> has invited you to join their store on <strong>Vyapar Sakha</strong>.
           </p>
           <div class="info-box">
             <p>🏪 <strong>Store:</strong> ${storeName}</p>
@@ -153,7 +153,7 @@ export const sendInviteEmail = async (
         </div>
         <div class="footer">
           If you didn't expect this, you can safely ignore this email.<br/>
-          © ${new Date().getFullYear()} Vyapar Sathi
+          © ${new Date().getFullYear()} Vyapar Sakha
         </div>
       </div>
     </body>
@@ -165,9 +165,9 @@ export const sendInviteEmail = async (
 
   await sendMailWithRetry(
     {
-      from: getFromAddress("Vyapar Sathi"),
+      from: getFromAddress("Vyapar Sakha"),
       to: toEmail,
-      subject: `You're invited to join ${storeName} on Vyapar Sathi`,
+      subject: `You're invited to join ${storeName} on Vyapar Sakha`,
       html,
     },
     maxRetries,
@@ -263,7 +263,7 @@ export const sendLowStockNotificationEmail = async (
       <div class="container">
         <div class="header">
           <h1>⚠️ Low Stock Alert Notification</h1>
-          <p>Vyapar Sathi Automated Inventory Monitor</p>
+          <p>Vyapar Sakha Automated Inventory Monitor</p>
         </div>
         <div class="body">
           <!-- Store Details Card -->
@@ -292,7 +292,7 @@ export const sendLowStockNotificationEmail = async (
         </div>
         <div class="footer">
           This is an automated low stock alert generated for <strong>${storeName}</strong>.<br/>
-          © ${new Date().getFullYear()} Vyapar Sathi Inventory Management System
+          © ${new Date().getFullYear()} Vyapar Sakha Inventory Management System
         </div>
       </div>
     </body>
@@ -305,7 +305,7 @@ export const sendLowStockNotificationEmail = async (
   try {
     await sendMailWithRetry(
       {
-        from: getFromAddress("Vyapar Sathi Alert"),
+        from: getFromAddress("Vyapar Sakha Alert"),
         to: toEmail,
         subject: `⚠️ Low Stock Alert: ${lowStockProducts.length} Product(s) Need Restocking in ${storeName}`,
         html,
@@ -373,7 +373,7 @@ export const sendHealthyInventoryNotificationEmail = async (
       <div class="container">
         <div class="header">
           <h1>✅ Inventory Healthy Status</h1>
-          <p>Vyapar Sathi Automated Inventory Monitor</p>
+          <p>Vyapar Sakha Automated Inventory Monitor</p>
         </div>
         <div class="body">
           <div class="store-card">
@@ -397,7 +397,7 @@ export const sendHealthyInventoryNotificationEmail = async (
         </div>
         <div class="footer">
           This is an automated inventory health notification for <strong>${storeName}</strong>.<br/>
-          © ${new Date().getFullYear()} Vyapar Sathi Inventory Management System
+          © ${new Date().getFullYear()} Vyapar Sakha Inventory Management System
         </div>
       </div>
     </body>
@@ -410,7 +410,7 @@ export const sendHealthyInventoryNotificationEmail = async (
   try {
     await sendMailWithRetry(
       {
-        from: getFromAddress("Vyapar Sathi"),
+        from: getFromAddress("Vyapar Sakha"),
         to: toEmail,
         subject: `✅ All Good: Inventory Healthy Status for ${storeName}`,
         html,

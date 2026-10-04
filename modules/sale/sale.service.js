@@ -120,7 +120,7 @@ const checkAndSendLowStockAlerts = async (cart) => {
         `[LOW STOCK MAIL] Triggering mail alert for store "${store.name}" to ${recipientEmail} (${lowStockProducts.length} low stock item(s))`
       );
       await sendLowStockNotificationEmail(recipientEmail, {
-        storeName: store.name || store.storeName || "Vyapar Sathi Store",
+        storeName: store.name || store.storeName || "Vyapar Sakha Store",
         storeId: store._id.toString(),
         lowStockThreshold: threshold,
         lowStockProducts,

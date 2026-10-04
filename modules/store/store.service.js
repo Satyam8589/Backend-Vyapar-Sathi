@@ -327,7 +327,7 @@ const sendInstantStockAlert = async (storeId) => {
     }));
 
     await sendLowStockNotificationEmail(recipientEmail, {
-      storeName: store.name || store.storeName || "Vyapar Sathi Store",
+      storeName: store.name || store.storeName || "Vyapar Sakha Store",
       storeId: store._id.toString(),
       lowStockThreshold: threshold,
       lowStockProducts,
@@ -343,7 +343,7 @@ const sendInstantStockAlert = async (storeId) => {
   } else {
     // Send healthy / all good inventory email
     await sendHealthyInventoryNotificationEmail(recipientEmail, {
-      storeName: store.name || store.storeName || "Vyapar Sathi Store",
+      storeName: store.name || store.storeName || "Vyapar Sakha Store",
       storeId: store._id.toString(),
       totalProductsCount: productList.length,
     });
