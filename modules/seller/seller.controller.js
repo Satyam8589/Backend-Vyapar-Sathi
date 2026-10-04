@@ -5,7 +5,48 @@ import {
   updateSeller,
   deleteSeller,
   getSellerStats,
+  getSellerPurchasesService,
+  getSellerPurchaseSummaryService,
 } from './seller.service.js';
+import { 
+  getSellersPerformanceService, 
+  getSellerPerformanceByIdService 
+} from './seller.performance.service.js';
+import { getSellerPayments } from '../purchase/purchasePayment.service.js';
+
+/**
+ * GET /api/sellers/:storeId/performance
+ */
+export const getSellersPerformanceController = async (req, res) => {
+  try {
+    const { storeId } = req.params;
+    const result = await getSellersPerformanceService(storeId, req.query);
+    return res.status(200).json({ success: true, message: 'Suppliers performance fetched successfully', data: result });
+  } catch (error) {
+    console.error('[SELLER] getSellersPerformance error:', error);
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Internal Server Error',
+    });
+  }
+};
+
+/**
+ * GET /api/sellers/:storeId/:sellerId/performance
+ */
+export const getSellerPerformanceByIdController = async (req, res) => {
+  try {
+    const { storeId, sellerId } = req.params;
+    const performance = await getSellerPerformanceByIdService(storeId, sellerId, req.query);
+    return res.status(200).json({ success: true, message: 'Supplier performance fetched successfully', data: performance });
+  } catch (error) {
+    console.error('[SELLER] getSellerPerformanceById error:', error);
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Internal Server Error',
+    });
+  }
+};
 
 /**
  * POST /api/sellers/:storeId
@@ -107,6 +148,57 @@ export const deleteSellerController = async (req, res) => {
     return res.status(200).json({ success: true, message: 'Seller deleted successfully', data: null });
   } catch (error) {
     console.error('[SELLER] deleteSeller error:', error);
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Internal Server Error',
+    });
+  }
+};
+
+/**
+ * GET /api/sellers/:storeId/:sellerId/purchases
+ */
+export const getSellerPurchasesController = async (req, res) => {
+  try {
+    const { storeId, sellerId } = req.params;
+    const purchases = await getSellerPurchasesService(storeId, sellerId, req.query);
+    return res.status(200).json({ success: true, message: 'Supplier purchases fetched successfully', data: purchases });
+  } catch (error) {
+    console.error('[SELLER] getSellerPurchases error:', error);
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Internal Server Error',
+    });
+  }
+};
+
+/**
+ * GET /api/sellers/:storeId/:sellerId/purchase-summary
+ */
+export const getSellerPurchaseSummaryController = async (req, res) => {
+  try {
+    const { storeId, sellerId } = req.params;
+    const summary = await getSellerPurchaseSummaryService(storeId, sellerId);
+    return res.status(200).json({ success: true, message: 'Supplier purchase summary fetched successfully', data: summary });
+  } catch (error) {
+    console.error('[SELLER] getSellerPurchaseSummary error:', error);
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Internal Server Error',
+    });
+  }
+};
+
+/**
+ * GET /api/sellers/:storeId/:sellerId/payments
+ */
+export const getSellerPaymentsController = async (req, res) => {
+  try {
+    const { storeId, sellerId } = req.params;
+    const payments = await getSellerPayments(storeId, sellerId, req.query);
+    return res.status(200).json({ success: true, message: 'Supplier payments fetched successfully', data: payments });
+  } catch (error) {
+    console.error('[SELLER] getSellerPayments error:', error);
     return res.status(error.statusCode || 500).json({
       success: false,
       message: error.message || 'Internal Server Error',

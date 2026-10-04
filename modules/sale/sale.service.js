@@ -2,6 +2,7 @@ import { Product, Sale, Store, Inventory } from "../../models/index.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { assertCartAccess } from "../store/storeAccess.service.js";
 import { sendLowStockNotificationEmail } from "../../utils/mailer.js";
+import { checkInventoryAlertsService } from "../notification/notification.service.js";
 
 const buildSaleItems = (cart) =>
   cart.products.map((item) => {
@@ -67,6 +68,9 @@ const decrementInventory = async (cart) => {
         if (inv) {
           inv.quantity = Math.max(0, updatedProd?.quantity ?? (inv.quantity - qtyToSubtract));
           await inv.save();
+          await checkInventoryAlertsService(cart.store, productId, inv.quantity, inv.minStockLevel || 10);
+        } else {
+          await checkInventoryAlertsService(cart.store, productId, updatedProd.quantity, 10);
         }
       } catch (invErr) {
         console.warn("[SALE SERVICE] Could not update Inventory record:", invErr.message);

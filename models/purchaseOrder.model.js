@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-const purchaseItemSchema = new mongoose.Schema({
+const purchaseOrderItemSchema = new mongoose.Schema({
     product: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Product',
@@ -10,6 +10,11 @@ const purchaseItemSchema = new mongoose.Schema({
         type: Number,
         required: [true, 'Quantity is required'],
         min: [0.01, 'Quantity must be greater than 0']
+    },
+    receivedQuantity: {
+        type: Number,
+        default: 0,
+        min: [0, 'Received quantity cannot be negative']
     },
     purchasePrice: {
         type: Number,
@@ -26,11 +31,6 @@ const purchaseItemSchema = new mongoose.Schema({
         default: 0,
         min: [0, 'Tax cannot be negative']
     },
-    returnedQuantity: {
-        type: Number,
-        default: 0,
-        min: [0, 'Returned quantity cannot be negative']
-    },
     subtotal: {
         type: Number,
         required: true,
@@ -38,7 +38,7 @@ const purchaseItemSchema = new mongoose.Schema({
     }
 }, { _id: false });
 
-const purchaseSchema = new mongoose.Schema({
+const purchaseOrderSchema = new mongoose.Schema({
     store: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Store',
@@ -51,20 +51,23 @@ const purchaseSchema = new mongoose.Schema({
         required: [true, 'Seller reference is required'],
         index: true
     },
-    invoiceNumber: {
+    poNumber: {
         type: String,
         trim: true,
-        required: [true, 'Invoice number is required']
+        required: [true, 'PO number is required']
     },
-    purchaseDate: {
+    orderDate: {
         type: Date,
         default: Date.now,
         required: true
     },
+    expectedDeliveryDate: {
+        type: Date
+    },
     items: {
-        type: [purchaseItemSchema],
+        type: [purchaseOrderItemSchema],
         required: true,
-        validate: [v => v.length > 0, 'Purchase must have at least one item']
+        validate: [v => v.length > 0, 'Purchase Order must have at least one item']
     },
     subtotal: {
         type: Number,
@@ -86,52 +89,50 @@ const purchaseSchema = new mongoose.Schema({
         required: true,
         min: 0
     },
-    paidAmount: {
-        type: Number,
-        default: 0,
-        min: 0
-    },
-    dueAmount: {
-        type: Number,
-        default: 0,
-        min: 0
-    },
-    paymentStatus: {
+    status: {
         type: String,
-        enum: ['paid', 'partial', 'unpaid'],
-        default: 'unpaid',
-        index: true
-    },
-    returnStatus: {
-        type: String,
-        enum: ['none', 'partial', 'full'],
-        default: 'none',
+        enum: ['Draft', 'Pending', 'Approved', 'Partially Received', 'Received', 'Cancelled'],
+        default: 'Pending',
         index: true
     },
     notes: {
         type: String,
         trim: true
-    }
+    },
+    linkedPurchases: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Purchase'
+    }]
 }, {
     timestamps: true
 });
 
-purchaseSchema.index({ store: 1, invoiceNumber: 1 }, { unique: true });
-purchaseSchema.index({ store: 1, purchaseDate: -1 });
+purchaseOrderSchema.index({ store: 1, poNumber: 1 }, { unique: true });
+purchaseOrderSchema.index({ store: 1, orderDate: -1 });
 
-purchaseSchema.pre('save', function() {
-    if (this.paidAmount >= this.grandTotal) {
-        this.paymentStatus = 'paid';
-    } else if (this.paidAmount > 0) {
-        this.paymentStatus = 'partial';
-    } else {
-        this.paymentStatus = 'unpaid';
-    }
+// Helper to update status dynamically based on received quantities
+purchaseOrderSchema.methods.updateStatusBasedOnReceipts = function() {
+    if (this.status === 'Cancelled' || this.status === 'Draft') return;
     
-    // Automatically calculate due amount
-    this.dueAmount = Math.max(0, this.grandTotal - this.paidAmount);
-});
+    let totalOrdered = 0;
+    let totalReceived = 0;
+    
+    this.items.forEach(item => {
+        totalOrdered += item.quantity;
+        totalReceived += item.receivedQuantity;
+    });
 
-const Purchase = mongoose.model("Purchase", purchaseSchema);
+    if (totalReceived === 0) {
+        if (this.status === 'Partially Received' || this.status === 'Received') {
+            this.status = 'Approved'; 
+        }
+    } else if (totalReceived >= totalOrdered) {
+        this.status = 'Received';
+    } else {
+        this.status = 'Partially Received';
+    }
+};
 
-export default Purchase;
+const PurchaseOrder = mongoose.model("PurchaseOrder", purchaseOrderSchema);
+
+export default PurchaseOrder;
