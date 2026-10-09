@@ -8,8 +8,12 @@ import {
   getBuyersController,
   getBuyerStatsController,
   getBuyerByIdController,
+  getBuyerPurchasesController,
   updateBuyerController,
   deleteBuyerController,
+  getSaleByIdController,
+  updateSaleTransactionController,
+  deleteSaleTransactionController,
 } from './buyer.controller.js';
 
 const router = Router({ mergeParams: true });
@@ -23,6 +27,20 @@ router.get(
   requirePermission(PERMISSIONS.INVENTORY_MANAGE),
   getBuyerStatsController
 );
+
+// GET  /api/buyers/:storeId/:buyerId/purchases
+router.get(
+  '/:storeId/:buyerId/purchases',
+  requirePermission(PERMISSIONS.INVENTORY_MANAGE),
+  getBuyerPurchasesController
+);
+
+// GET, PUT & DELETE /api/buyers/:storeId/sales/:saleId
+router
+  .route('/:storeId/sales/:saleId')
+  .get(requirePermission(PERMISSIONS.INVENTORY_MANAGE), getSaleByIdController)
+  .put(requirePermission(PERMISSIONS.INVENTORY_MANAGE), updateSaleTransactionController)
+  .delete(requirePermission(PERMISSIONS.INVENTORY_MANAGE), deleteSaleTransactionController);
 
 // GET  /api/buyers/:storeId
 // POST /api/buyers/:storeId

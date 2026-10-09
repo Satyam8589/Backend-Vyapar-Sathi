@@ -2,6 +2,7 @@ import { Product, Sale, Store, Inventory } from "../../models/index.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { assertCartAccess } from "../store/storeAccess.service.js";
 import { sendLowStockNotificationEmail } from "../../utils/mailer.js";
+import { createBuyer } from "../buyer/buyer.service.js";
 
 const buildSaleItems = (cart) =>
   cart.products.map((item) => {
@@ -186,6 +187,10 @@ export const materializeSaleFromCart = async (cartId, userId) => {
     store: cart.store,
     user: cart.user,
     cart: cart._id,
+    buyer: cart.buyer || null,
+    customerName: cart.customerName || "Walk-in Customer",
+    customerPhone: cart.customerPhone || "",
+    customerEmail: cart.customerEmail || "",
     items,
     totalAmount: cart.totalPrice || items.reduce((sum, item) => sum + item.lineTotal, 0),
     subtotal: cart.subtotal || totalAmount,
@@ -197,6 +202,25 @@ export const materializeSaleFromCart = async (cartId, userId) => {
   console.log(
     `[SALE SERVICE] Created sale snapshot for cart=${cartId} sale=${sale._id} mode=${isBackfillForCompletedCart ? "backfill" : "live"}`
   );
+
+  // Auto-update or create Buyer stats for store
+  const phone = cart.customerPhone?.trim();
+  const name = cart.customerName?.trim();
+  if (cart.buyer || (phone && phone !== "N/A" && phone !== "")) {
+    try {
+      await createBuyer(cart.store, {
+        buyerId: cart.buyer,
+        name: name && name !== "Walk-in Customer" ? name : "Customer",
+        phone: phone || "N/A",
+        email: cart.customerEmail || "",
+        totalSales: sale.totalAmount,
+        totalPaid: sale.paidAmount,
+        totalDue: sale.dueAmount,
+      });
+    } catch (buyerErr) {
+      console.warn("[SALE SERVICE] Could not update buyer stats:", buyerErr.message);
+    }
+  }
 
   if (cart.status !== "completed") {
     cart.status = "completed";

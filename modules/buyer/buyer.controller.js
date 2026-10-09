@@ -5,6 +5,10 @@ import {
   updateBuyer,
   deleteBuyer,
   getBuyerStats,
+  getBuyerPurchases,
+  getSaleById,
+  updateSaleTransaction,
+  deleteSaleTransaction,
 } from './buyer.service.js';
 
 /**
@@ -81,6 +85,23 @@ export const getBuyerByIdController = async (req, res) => {
 };
 
 /**
+ * GET /api/buyers/:storeId/:buyerId/purchases
+ */
+export const getBuyerPurchasesController = async (req, res) => {
+  try {
+    const { storeId, buyerId } = req.params;
+    const result = await getBuyerPurchases(storeId, buyerId);
+    return res.status(200).json({ success: true, message: 'Buyer purchases fetched successfully', data: result });
+  } catch (error) {
+    console.error('[BUYER] getBuyerPurchases error:', error);
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Internal Server Error',
+    });
+  }
+};
+
+/**
  * PUT /api/buyers/:storeId/:buyerId
  */
 export const updateBuyerController = async (req, res) => {
@@ -107,6 +128,57 @@ export const deleteBuyerController = async (req, res) => {
     return res.status(200).json({ success: true, message: 'Buyer deleted successfully', data: null });
   } catch (error) {
     console.error('[BUYER] deleteBuyer error:', error);
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Internal Server Error',
+    });
+  }
+};
+
+/**
+ * GET /api/buyers/:storeId/sales/:saleId
+ */
+export const getSaleByIdController = async (req, res) => {
+  try {
+    const { storeId, saleId } = req.params;
+    const sale = await getSaleById(storeId, saleId);
+    return res.status(200).json({ success: true, message: 'Sale details fetched successfully', data: sale });
+  } catch (error) {
+    console.error('[BUYER] getSaleById error:', error);
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Internal Server Error',
+    });
+  }
+};
+
+/**
+ * PUT /api/buyers/:storeId/sales/:saleId
+ */
+export const updateSaleTransactionController = async (req, res) => {
+  try {
+    const { storeId, saleId } = req.params;
+    const result = await updateSaleTransaction(storeId, saleId, req.body);
+    return res.status(200).json({ success: true, message: 'Sale transaction updated successfully', data: result });
+  } catch (error) {
+    console.error('[BUYER] updateSaleTransaction error:', error);
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Internal Server Error',
+    });
+  }
+};
+
+/**
+ * DELETE /api/buyers/:storeId/sales/:saleId
+ */
+export const deleteSaleTransactionController = async (req, res) => {
+  try {
+    const { storeId, saleId } = req.params;
+    await deleteSaleTransaction(storeId, saleId);
+    return res.status(200).json({ success: true, message: 'Sale transaction deleted successfully', data: null });
+  } catch (error) {
+    console.error('[BUYER] deleteSaleTransaction error:', error);
     return res.status(error.statusCode || 500).json({
       success: false,
       message: error.message || 'Internal Server Error',

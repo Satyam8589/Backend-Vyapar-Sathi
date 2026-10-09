@@ -16,6 +16,21 @@ const cartSchema = new mongoose.Schema({
         ref: 'Buyer',
         default: null
     },
+    customerName: {
+        type: String,
+        trim: true,
+        default: 'Walk-in Customer'
+    },
+    customerPhone: {
+        type: String,
+        trim: true,
+        default: ''
+    },
+    customerEmail: {
+        type: String,
+        trim: true,
+        default: ''
+    },
     products: [
         {
             product: {

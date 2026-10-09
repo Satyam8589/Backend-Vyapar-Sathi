@@ -68,6 +68,21 @@ const saleSchema = new mongoose.Schema(
       default: null,
       index: true,
     },
+    customerName: {
+      type: String,
+      trim: true,
+      default: "Walk-in Customer",
+    },
+    customerPhone: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    customerEmail: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     items: {
       type: [saleItemSchema],
       default: [],

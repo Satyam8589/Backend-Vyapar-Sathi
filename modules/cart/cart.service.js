@@ -86,7 +86,7 @@ export const addItemToCart = async (cartId, productId, quantity = 1) => {
   return cart;
 };
 
-export const processPayment = async (cartId, paymentId, subtotal, discount, totalPrice) => {
+export const processPayment = async (cartId, paymentId, subtotal, discount, totalPrice, buyer, customerName, customerPhone, customerEmail) => {
   const cart = await Cart.findById(cartId);
   if (!cart) throw new ApiError(404, "Cart not found");
 
@@ -97,6 +97,10 @@ export const processPayment = async (cartId, paymentId, subtotal, discount, tota
   if (subtotal !== undefined) cart.subtotal = subtotal;
   if (discount !== undefined) cart.discount = discount;
   if (totalPrice !== undefined) cart.totalPrice = totalPrice;
+  if (buyer) cart.buyer = buyer;
+  if (customerName) cart.customerName = customerName;
+  if (customerPhone) cart.customerPhone = customerPhone;
+  if (customerEmail) cart.customerEmail = customerEmail;
 
   await cart.save();
   return cart;
