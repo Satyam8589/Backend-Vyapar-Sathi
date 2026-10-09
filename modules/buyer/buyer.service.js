@@ -397,8 +397,12 @@ export const sendSaleEmailTransaction = async (storeId, saleId, targetEmail) => 
     throw Object.assign(new Error('No email address available for this buyer. Please update buyer info with a valid email.'), { statusCode: 400 });
   }
 
+  const saleObj = sale.toObject();
   const billData = {
-    ...sale.toObject(),
+    ...saleObj,
+    _id: saleObj._id?.toString(),
+    store: saleObj.store?.toString?.() ?? saleObj.store,
+    buyer: saleObj.buyer?._id?.toString?.() ?? saleObj.buyer?.toString?.() ?? saleObj.buyer,
     storeInfo: storeObj || {},
   };
 
