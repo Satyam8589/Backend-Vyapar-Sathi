@@ -3,33 +3,53 @@ import { Buyer, Sale, Store } from '../../models/index.js';
 import { sendInvoiceEmail } from '../../utils/mailer.js';
 
 /**
- * Create or update a buyer for a store
+ * Helper to recalculate and persist buyer totals on Buyer document
  */
-export const createBuyer = async (storeId, data) => {
-  let existing = null;
+const recalculateBuyerTotals = async (storeId, buyerId, phone) => {
+  try {
+    const matchConditions = [];
+    if (buyerId && mongoose.Types.ObjectId.isValid(buyerId)) {
+      matchConditions.push({ buyer: new mongoose.Types.ObjectId(buyerId) });
+    }
+    if (phone && phone !== 'N/A' && phone.trim() !== '') {
+      matchConditions.push({ customerPhone: phone.trim() });
+    }
+    if (matchConditions.length === 0) return;
 
-  if (data.buyerId || data._id) {
-    existing = await Buyer.findOne({ _id: data.buyerId || data._id, store: storeId });
+    const salesStats = await Sale.aggregate([
+      {
+        $match: {
+          store: new mongoose.Types.ObjectId(storeId),
+          $or: matchConditions,
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalSales: { $sum: '$totalAmount' },
+          totalPaid: { $sum: { $ifNull: ['$paidAmount', '$totalAmount'] } },
+          totalDue: { $sum: { $ifNull: ['$dueAmount', 0] } },
+        },
+      },
+    ]);
+
+    const totalSales = salesStats[0]?.totalSales || 0;
+    const totalPaid = salesStats[0]?.totalPaid || 0;
+    const totalDue = salesStats[0]?.totalDue || 0;
+
+    const query = { store: storeId };
+    if (buyerId && mongoose.Types.ObjectId.isValid(buyerId)) {
+      query._id = buyerId;
+    } else {
+      query.phone = phone.trim();
+    }
+
+    await Buyer.updateOne(query, {
+      $set: { totalSales, totalPaid, totalDue },
+    });
+  } catch (err) {
+    console.warn('[BUYER SERVICE] Failed to recalculate buyer totals:', err.message);
   }
-
-  if (!existing && data.phone && data.phone !== 'N/A' && data.phone.trim() !== '') {
-    existing = await Buyer.findOne({ store: storeId, phone: data.phone.trim() });
-  }
-
-  if (existing) {
-    if (data.name && data.name !== 'Walk-in Customer') existing.name = data.name.trim();
-    if (data.email) existing.email = data.email.trim();
-    if (data.address) existing.address = data.address.trim();
-    if (data.GSTIN) existing.GSTIN = data.GSTIN.trim();
-    if (data.totalSales) existing.totalSales = (existing.totalSales || 0) + Number(data.totalSales);
-    if (data.totalPaid) existing.totalPaid = (existing.totalPaid || 0) + Number(data.totalPaid);
-    if (data.totalDue !== undefined) existing.totalDue = (existing.totalDue || 0) + Number(data.totalDue);
-    await existing.save();
-    return existing;
-  }
-
-  const buyer = await Buyer.create({ ...data, store: storeId });
-  return buyer;
 };
 
 /**
@@ -111,9 +131,9 @@ export const getBuyers = async (storeId, { search, status, page = 1, limit = 20 
 
   const buyers = buyersDocs.map((b) => {
     const stats = salesMapByBuyerId.get(b._id.toString()) || salesMapByPhone.get(b.phone);
-    const totalSales = stats ? stats.computedTotalSales : (b.totalSales || 0);
-    const totalPaid = stats ? stats.computedTotalPaid : (b.totalPaid || 0);
-    const totalDue = stats ? stats.computedTotalDue : (b.totalDue || 0);
+    const totalSales = stats ? stats.computedTotalSales : 0;
+    const totalPaid = stats ? stats.computedTotalPaid : 0;
+    const totalDue = stats ? stats.computedTotalDue : 0;
     return {
       ...b,
       totalSales,
@@ -167,6 +187,10 @@ export const getBuyerById = async (storeId, buyerId) => {
       buyer.totalSales = salesStats[0].totalSales;
       buyer.totalPaid = salesStats[0].totalPaid;
       buyer.totalDue = salesStats[0].totalDue;
+    } else {
+      buyer.totalSales = 0;
+      buyer.totalPaid = 0;
+      buyer.totalDue = 0;
     }
   } catch (err) {
     console.warn("[BUYER SERVICE] Failed to aggregate buyer stats:", err.message);
@@ -207,6 +231,7 @@ export const deleteBuyer = async (storeId, buyerId) => {
   if (!buyer) {
     throw Object.assign(new Error('Buyer not found'), { statusCode: 404 });
   }
+  await Sale.updateMany({ store: storeId, buyer: buyerId }, { $unset: { buyer: "" } });
   await buyer.deleteOne();
   return { deleted: true };
 };
@@ -225,9 +250,6 @@ export const getBuyerStats = async (storeId) => {
           _id: null,
           totalBuyers: { $sum: 1 },
           activeBuyers: { $sum: { $cond: [{ $eq: ['$status', 'active'] }, 1, 0] } },
-          totalSalesAmount: { $sum: '$totalSales' },
-          totalPaid: { $sum: '$totalPaid' },
-          totalDue: { $sum: '$totalDue' },
         },
       },
     ]),
@@ -244,15 +266,15 @@ export const getBuyerStats = async (storeId) => {
     ]),
   ]);
 
-  const bStats = buyerGroup[0] || { totalBuyers: 0, activeBuyers: 0, totalSalesAmount: 0, totalPaid: 0, totalDue: 0 };
+  const bStats = buyerGroup[0] || { totalBuyers: 0, activeBuyers: 0 };
   const sStats = saleGroup[0] || { totalSalesAmount: 0, totalPaid: 0, totalDue: 0 };
 
   return {
     totalBuyers: bStats.totalBuyers,
     activeBuyers: bStats.activeBuyers,
-    totalSalesAmount: Math.max(bStats.totalSalesAmount, sStats.totalSalesAmount),
-    totalPaid: Math.max(bStats.totalPaid, sStats.totalPaid),
-    totalDue: Math.max(bStats.totalDue, sStats.totalDue),
+    totalSalesAmount: sStats.totalSalesAmount,
+    totalPaid: sStats.totalPaid,
+    totalDue: sStats.totalDue,
   };
 };
 
@@ -282,14 +304,14 @@ export const getBuyerPurchases = async (storeId, buyerId) => {
   return {
     buyer: {
       ...buyer,
-      totalSales: Math.max(buyer.totalSales || 0, totalSales),
-      totalPaid: Math.max(buyer.totalPaid || 0, totalPaid),
-      totalDue: Math.max(buyer.totalDue || 0, totalDue),
+      totalSales,
+      totalPaid,
+      totalDue,
     },
     purchases,
-    totalSales: Math.max(buyer.totalSales || 0, totalSales),
-    totalPaid: Math.max(buyer.totalPaid || 0, totalPaid),
-    totalDue: Math.max(buyer.totalDue || 0, totalDue),
+    totalSales,
+    totalPaid,
+    totalDue,
     totalPurchases: purchases.length,
   };
 };
@@ -357,6 +379,11 @@ export const updateSaleTransaction = async (storeId, saleId, updateData) => {
   }
 
   await sale.save();
+
+  if (sale.buyer || sale.customerPhone) {
+    await recalculateBuyerTotals(storeId, sale.buyer, sale.customerPhone);
+  }
+
   return sale;
 };
 
@@ -373,14 +400,52 @@ export const deleteSaleTransaction = async (storeId, saleId) => {
     throw Object.assign(new Error('Sale transaction not found'), { statusCode: 404 });
   }
 
+  const buyerId = sale.buyer;
+  const customerPhone = sale.customerPhone;
+
   await sale.deleteOne();
+
+  if (buyerId || customerPhone) {
+    await recalculateBuyerTotals(storeId, buyerId, customerPhone);
+  }
+
   return { deleted: true };
+};
+
+/**
+ * Create or update a buyer for a store
+ */
+export const createBuyer = async (storeId, data) => {
+  let existing = null;
+
+  if (data.buyerId || data._id) {
+    existing = await Buyer.findOne({ _id: data.buyerId || data._id, store: storeId });
+  }
+
+  if (!existing && data.phone && data.phone !== 'N/A' && data.phone.trim() !== '') {
+    existing = await Buyer.findOne({ store: storeId, phone: data.phone.trim() });
+  }
+
+  if (existing) {
+    if (data.name && data.name !== 'Walk-in Customer') existing.name = data.name.trim();
+    if (data.email) existing.email = data.email.trim();
+    if (data.address) existing.address = data.address.trim();
+    if (data.GSTIN) existing.GSTIN = data.GSTIN.trim();
+    if (data.totalSales) existing.totalSales = (existing.totalSales || 0) + Number(data.totalSales);
+    if (data.totalPaid) existing.totalPaid = (existing.totalPaid || 0) + Number(data.totalPaid);
+    if (data.totalDue !== undefined) existing.totalDue = (existing.totalDue || 0) + Number(data.totalDue);
+    await existing.save();
+    return existing;
+  }
+
+  const buyer = await Buyer.create({ ...data, store: storeId });
+  return buyer;
 };
 
 /**
  * Send bill email to buyer/customer for a sale transaction
  */
-export const sendSaleEmailTransaction = async (storeId, saleId, targetEmail) => {
+export const sendSaleEmailTransaction = async (storeId, saleId, targetEmail, pdfBase64 = null) => {
   if (!mongoose.Types.ObjectId.isValid(saleId)) {
     throw Object.assign(new Error('Invalid sale ID'), { statusCode: 400 });
   }
@@ -406,7 +471,7 @@ export const sendSaleEmailTransaction = async (storeId, saleId, targetEmail) => 
     storeInfo: storeObj || {},
   };
 
-  await sendInvoiceEmail(toEmail, billData);
+  await sendInvoiceEmail(toEmail, billData, {}, pdfBase64);
 
   return { success: true, email: toEmail };
 };

@@ -193,15 +193,15 @@ export const deleteSaleTransactionController = async (req, res) => {
 export const sendSaleEmailTransactionController = async (req, res) => {
   try {
     const { storeId, saleId } = req.params;
-    const { email } = req.body;
-    const result = await sendSaleEmailTransaction(storeId, saleId, email);
+    const { email, pdfBase64 } = req.body;
+    const result = await sendSaleEmailTransaction(storeId, saleId, email, pdfBase64);
     return res.status(200).json({
       success: true,
       message: `Tax invoice email sent successfully to ${result.email}`,
       data: result,
     });
   } catch (error) {
-    console.error('[BUYER] sendSaleEmailTransaction error:', error);
+    console.error('[BUYER] sendSaleEmailTransaction error:', error?.message || error);
     return res.status(error.statusCode || 500).json({
       success: false,
       message: error.message || 'Failed to send tax invoice email',

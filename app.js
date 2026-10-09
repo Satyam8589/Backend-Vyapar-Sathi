@@ -25,8 +25,8 @@ app.set("trust proxy", 1);
 
 connectDB();
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 // CORS - allow configured production origins
 const defaultOrigins = [
