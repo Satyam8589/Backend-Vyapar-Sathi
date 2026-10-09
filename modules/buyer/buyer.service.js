@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
-import { Buyer, Sale } from '../../models/index.js';
+import { Buyer, Sale, Store } from '../../models/index.js';
+import { sendInvoiceEmail } from '../../utils/mailer.js';
 
 /**
  * Create or update a buyer for a store
@@ -270,6 +271,7 @@ export const getBuyerPurchases = async (storeId, buyerId) => {
   };
 
   const purchases = await Sale.find(query)
+    .populate('store')
     .sort({ completedAt: -1, createdAt: -1 })
     .lean();
 
@@ -303,7 +305,9 @@ export const getSaleById = async (storeId, saleId) => {
   const sale = await Sale.findOne({
     _id: new mongoose.Types.ObjectId(saleId),
     store: new mongoose.Types.ObjectId(storeId),
-  }).lean();
+  })
+    .populate('store')
+    .lean();
 
   if (!sale) {
     throw Object.assign(new Error('Sale transaction not found'), { statusCode: 404 });
@@ -371,4 +375,34 @@ export const deleteSaleTransaction = async (storeId, saleId) => {
 
   await sale.deleteOne();
   return { deleted: true };
+};
+
+/**
+ * Send bill email to buyer/customer for a sale transaction
+ */
+export const sendSaleEmailTransaction = async (storeId, saleId, targetEmail) => {
+  if (!mongoose.Types.ObjectId.isValid(saleId)) {
+    throw Object.assign(new Error('Invalid sale ID'), { statusCode: 400 });
+  }
+
+  const sale = await Sale.findOne({ _id: saleId, store: storeId }).populate('buyer');
+  if (!sale) {
+    throw Object.assign(new Error('Sale transaction not found'), { statusCode: 404 });
+  }
+
+  const storeObj = await Store.findById(storeId).lean();
+  const toEmail = (targetEmail || sale.customerEmail || sale.buyer?.email || '').trim();
+
+  if (!toEmail) {
+    throw Object.assign(new Error('No email address available for this buyer. Please update buyer info with a valid email.'), { statusCode: 400 });
+  }
+
+  const billData = {
+    ...sale.toObject(),
+    storeInfo: storeObj || {},
+  };
+
+  await sendInvoiceEmail(toEmail, billData);
+
+  return { success: true, email: toEmail };
 };

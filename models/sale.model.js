@@ -142,6 +142,11 @@ const saleSchema = new mongoose.Schema(
       trim: true,
       default: null,
     },
+    paymentMethod: {
+      type: String,
+      trim: true,
+      default: "cash",
+    },
     completedAt: {
       type: Date,
       required: true,

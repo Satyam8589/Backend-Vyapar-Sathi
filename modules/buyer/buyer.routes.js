@@ -14,12 +14,20 @@ import {
   getSaleByIdController,
   updateSaleTransactionController,
   deleteSaleTransactionController,
+  sendSaleEmailTransactionController,
 } from './buyer.controller.js';
 
 const router = Router({ mergeParams: true });
 
 router.use(authMiddleware);
 router.use(requireUser);
+
+// POST /api/buyers/:storeId/sales/:saleId/send-email
+router.post(
+  '/:storeId/sales/:saleId/send-email',
+  requirePermission(PERMISSIONS.INVENTORY_MANAGE),
+  sendSaleEmailTransactionController
+);
 
 // GET  /api/buyers/:storeId/stats
 router.get(

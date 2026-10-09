@@ -425,3 +425,184 @@ export const sendHealthyInventoryNotificationEmail = async (
     );
   }
 };
+
+// ---------------------------------------------------------------------------
+// sendInvoiceEmail
+// ---------------------------------------------------------------------------
+
+/**
+ * Send an Official Tax Invoice Email to a Buyer/Customer
+ *
+ * @param {string} toEmail - Recipient email
+ * @param {object} billData - Sale/Invoice object containing items, store, total, customer info
+ * @param {object} [retryOpts] - Retry options
+ */
+export const sendInvoiceEmail = async (toEmail, billData, retryOpts = {}) => {
+  if (!toEmail) return;
+
+  const store = billData.storeInfo || billData.store || {};
+  const storeName = store.name || store.storeName || billData.storeName || "Vyapar Sakha Store";
+  const storeAddress = store.address || store.fullAddress || "";
+  const storePhone = store.phone || store.mobile || "";
+
+  const customerName = billData.customerName || billData.buyer?.name || "Valued Customer";
+  const invoiceNo = billData.billNumber || billData.invoiceNo || (billData._id ? `INV-${billData._id.slice(-8).toUpperCase()}` : "TAX-INVOICE");
+  const dateStr = billData.completedAt || billData.billedAt || billData.createdAt || new Date();
+  const formattedDate = new Date(dateStr).toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const paymentMethod = String(billData.paymentMethod || billData.paymentMode || "CASH").toUpperCase();
+  const paymentStatus = String(billData.paymentStatus || "PAID").toUpperCase();
+
+  const products = billData.items || billData.products || [];
+  let subtotal = 0;
+  const itemsHtml = products
+    .map((item, idx) => {
+      const name = item.nameSnapshot || item.name || item.product?.name || "Product Item";
+      const qty = Number(item.quantity || item.qty || 1);
+      const price = Number(item.unitPrice || item.price || 0);
+      const lineTotal = Number(item.lineTotal || item.total || (qty * price));
+      subtotal += lineTotal;
+      return `
+        <tr style="border-bottom: 1px solid #e2e8f0; font-size: 13px;">
+          <td style="padding: 10px 12px; color: #64748b; text-align: center;">${idx + 1}</td>
+          <td style="padding: 10px 12px; color: #0f172a; font-weight: 600;">${name}</td>
+          <td style="padding: 10px 12px; color: #334155; text-align: center;">${qty}</td>
+          <td style="padding: 10px 12px; color: #334155; text-align: right;">₹${price.toFixed(2)}</td>
+          <td style="padding: 10px 12px; color: #0f172a; font-weight: 700; text-align: right;">₹${lineTotal.toFixed(2)}</td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  let discAmount = 0;
+  if (typeof billData.discount === "object" && billData.discount !== null) {
+    if (typeof billData.discount.amount === "number" && billData.discount.amount > 0) {
+      discAmount = billData.discount.amount;
+    } else if (typeof billData.discount.value === "number" && billData.discount.value > 0) {
+      discAmount = billData.discount.type === "percent" ? (subtotal * billData.discount.value) / 100 : billData.discount.value;
+    }
+  } else if (typeof billData.discount === "number" && billData.discount > 0) {
+    discAmount = billData.discount;
+  }
+  const grandTotal = Math.max(0, subtotal - discAmount);
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8"/>
+      <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 20px; color: #1e293b; }
+        .invoice-card { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08); border: 1px solid #e2e8f0; }
+        .header { background: linear-gradient(135deg, #0f172a, #1e293b); padding: 28px 32px; color: #ffffff; }
+        .header-top { display: flex; justify-content: space-between; align-items: center; }
+        .badge { background: #10b981; color: #ffffff; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+        .body-content { padding: 32px; }
+        .table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        .table th { background: #f1f5f9; color: #475569; font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 10px 12px; border-bottom: 2px solid #e2e8f0; }
+        .total-box { background: #0f172a; color: #ffffff; padding: 18px 24px; border-radius: 12px; margin-top: 20px; }
+        .footer { text-align: center; padding: 24px; background: #f8fafc; border-top: 1px solid #e2e8f0; font-size: 12px; color: #64748b; }
+      </style>
+    </head>
+    <body>
+      <div class="invoice-card">
+        <div class="header">
+          <div style="font-size: 11px; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">TAX INVOICE RECEIPT</div>
+          <h1 style="margin: 4px 0 0 0; font-size: 24px; font-weight: 800; color: #ffffff;">${storeName}</h1>
+          ${storeAddress ? `<div style="font-size: 12px; color: #cbd5e1; margin-top: 4px;">📍 ${storeAddress}</div>` : ""}
+          ${storePhone ? `<div style="font-size: 12px; color: #cbd5e1; margin-top: 2px;">📞 ${storePhone}</div>` : ""}
+        </div>
+        <div class="body-content">
+          <p style="font-size: 15px; margin-top: 0; color: #0f172a;">Dear <strong>${customerName}</strong>,</p>
+          <p style="font-size: 13px; color: #475569; margin-bottom: 20px; line-height: 1.5;">Thank you for your purchase! Here is your official tax invoice receipt from <strong>${storeName}</strong>.</p>
+          
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 12px;">
+            <tr>
+              <td style="padding: 12px; background: #f8fafc; border-radius: 8px 0 0 8px; border: 1px solid #e2e8f0;">
+                <div style="font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase;">Invoice No</div>
+                <div style="font-size: 13px; font-weight: 700; color: #0f172a; margin-top: 2px;">${invoiceNo}</div>
+              </td>
+              <td style="padding: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-left: 0;">
+                <div style="font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase;">Date & Time</div>
+                <div style="font-size: 13px; font-weight: 600; color: #334155; margin-top: 2px;">${formattedDate}</div>
+              </td>
+              <td style="padding: 12px; background: #f8fafc; border-radius: 0 8px 8px 0; border: 1px solid #e2e8f0; border-left: 0;">
+                <div style="font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase;">Payment Method</div>
+                <div style="font-size: 13px; font-weight: 700; color: #166534; margin-top: 2px;">${paymentMethod} [${paymentStatus}]</div>
+              </td>
+            </tr>
+          </table>
+
+          <table class="table">
+            <thead>
+              <tr>
+                <th style="text-align: center; width: 40px;">#</th>
+                <th style="text-align: left;">Item Description</th>
+                <th style="text-align: center; width: 50px;">Qty</th>
+                <th style="text-align: right; width: 80px;">Rate</th>
+                <th style="text-align: right; width: 90px;">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsHtml}
+            </tbody>
+          </table>
+
+          <table style="width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 12px;">
+            <tr>
+              <td style="text-align: right; padding: 4px 12px; color: #64748b;">Subtotal:</td>
+              <td style="text-align: right; padding: 4px 12px; font-weight: 600; color: #0f172a; width: 120px;">₹${subtotal.toFixed(2)}</td>
+            </tr>
+            ${discAmount > 0 ? `
+              <tr>
+                <td style="text-align: right; padding: 4px 12px; color: #10b981; font-weight: 700;">Discount Applied:</td>
+                <td style="text-align: right; padding: 4px 12px; font-weight: 700; color: #10b981;">- ₹${discAmount.toFixed(2)}</td>
+              </tr>
+            ` : ""}
+          </table>
+
+          <div class="total-box">
+            <table style="width: 100%; border-collapse: collapse; color: #ffffff;">
+              <tr>
+                <td>
+                  <span style="font-size: 10px; text-transform: uppercase; color: #94a3b8; font-weight: 700; letter-spacing: 0.5px;">Grand Total Paid</span>
+                  <div style="font-size: 24px; font-weight: 900; color: #34d399; margin-top: 2px;">₹${grandTotal.toFixed(2)}</div>
+                </td>
+                <td style="text-align: right; vertical-align: bottom;">
+                  <span style="font-size: 12px; color: #94a3b8; font-weight: 700;">For VyparSakha</span>
+                  <div style="font-size: 10px; color: #64748b;">Authorized Signatory</div>
+                </td>
+              </tr>
+            </table>
+          </div>
+        </div>
+
+        <div class="footer">
+          <p style="margin: 0 0 4px 0; font-weight: 600; color: #334155;">Thank you for shopping with ${storeName}!</p>
+          <p style="margin: 0; color: #94a3b8; font-size: 11px;">Official Electronic Invoice • Powered by Vyapar Sakha System</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  const maxRetries = retryOpts.maxRetries ?? 3;
+  const delayMs = retryOpts.delayMs ?? 60000;
+
+  await sendMailWithRetry(
+    {
+      from: getFromAddress(storeName),
+      to: toEmail,
+      subject: `Tax Invoice ${invoiceNo} from ${storeName}`,
+      html,
+    },
+    maxRetries,
+    delayMs
+  );
+};
+

@@ -196,6 +196,7 @@ export const materializeSaleFromCart = async (cartId, userId) => {
     subtotal: cart.subtotal || totalAmount,
     discount: cart.discount || { type: "fixed", value: 0, amount: 0 },
     paymentId: cart.paymentId || null,
+    paymentMethod: cart.paymentMethod || (cart.paymentId ? cart.paymentId.split("-")[0] : "cash"),
     completedAt: isBackfillForCompletedCart ? cart.updatedAt || new Date() : new Date(),
   });
 

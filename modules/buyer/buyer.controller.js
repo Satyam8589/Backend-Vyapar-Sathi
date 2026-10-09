@@ -9,6 +9,7 @@ import {
   getSaleById,
   updateSaleTransaction,
   deleteSaleTransaction,
+  sendSaleEmailTransaction,
 } from './buyer.service.js';
 
 /**
@@ -182,6 +183,28 @@ export const deleteSaleTransactionController = async (req, res) => {
     return res.status(error.statusCode || 500).json({
       success: false,
       message: error.message || 'Internal Server Error',
+    });
+  }
+};
+
+/**
+ * POST /api/buyers/:storeId/sales/:saleId/send-email
+ */
+export const sendSaleEmailTransactionController = async (req, res) => {
+  try {
+    const { storeId, saleId } = req.params;
+    const { email } = req.body;
+    const result = await sendSaleEmailTransaction(storeId, saleId, email);
+    return res.status(200).json({
+      success: true,
+      message: `Tax invoice email sent successfully to ${result.email}`,
+      data: result,
+    });
+  } catch (error) {
+    console.error('[BUYER] sendSaleEmailTransaction error:', error);
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Failed to send tax invoice email',
     });
   }
 };
