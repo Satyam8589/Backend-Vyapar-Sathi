@@ -19,7 +19,9 @@ const authMiddleware = async (req, res, next) => {
     ) {
       console.log("[AUTH MIDDLEWARE] Internal AI service authenticated");
       req.isInternalService = true;
-      req.user = { isService: true, name: "vyapar-ai-service" };
+      const callerUserId = req.headers["x-user-id"] || req.body?.user || req.query?.userId || null;
+      const callerUserEmail = req.headers["x-user-email"] || req.body?.config?.recipientEmail || null;
+      req.user = { _id: callerUserId, email: callerUserEmail, isService: true, name: "vyapar-ai-service" };
       return next();
     }
 
