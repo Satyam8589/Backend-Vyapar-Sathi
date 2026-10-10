@@ -76,8 +76,9 @@ describe("Product model", () => {
     const error = doc.validateSync();
 
     expect(error).toBeDefined();
-    expect(error.errors.price).toBeDefined();
-    expect(error.errors.price.message).toBe("Price is required");
+    const priceError = error.errors.sellingPrice || error.errors.price;
+    expect(priceError).toBeDefined();
+    expect(priceError.message).toBe("Price is required");
   });
 
   test("rejects when store reference is missing", () => {
@@ -113,7 +114,7 @@ describe("Product model", () => {
     const doc = new Product({
       name: "Test Product",
       category: "Electronics",
-      sellingPrice: 999, buyingPrice: -100,
+      sellingPrice: -100,
       store: new mongoose.Types.ObjectId(),
       createdBy: new mongoose.Types.ObjectId(),
     });
@@ -121,15 +122,16 @@ describe("Product model", () => {
     const error = doc.validateSync();
 
     expect(error).toBeDefined();
-    expect(error.errors.price).toBeDefined();
-    expect(error.errors.price.message).toBe("Price cannot be negative");
+    const priceError = error.errors.sellingPrice || error.errors.price;
+    expect(priceError).toBeDefined();
+    expect(priceError.message).toBe("Price cannot be negative");
   });
 
   test("accepts zero price", () => {
     const doc = new Product({
       name: "Free Product",
       category: "Electronics",
-      sellingPrice: 999, buyingPrice: 0,
+      sellingPrice: 0,
       store: new mongoose.Types.ObjectId(),
       createdBy: new mongoose.Types.ObjectId(),
     });
@@ -310,7 +312,7 @@ describe("Product model", () => {
     const doc = new Product({
       name: "Complete Product",
       category: "Electronics",
-      sellingPrice: 999, buyingPrice: 1999,
+      price: 1999,
       quantity: 50,
       unit: "Boxes",
       barcode: "987654321",
@@ -369,7 +371,7 @@ describe("Product model", () => {
     const doc = new Product({
       name: "Expensive Product",
       category: "Luxury",
-      sellingPrice: 999, buyingPrice: 99999999,
+      sellingPrice: 99999999,
       store: new mongoose.Types.ObjectId(),
       createdBy: new mongoose.Types.ObjectId(),
     });
@@ -400,7 +402,7 @@ describe("Product model", () => {
     const doc = new Product({
       name: "Test Product",
       category: "Electronics",
-      sellingPrice: 999, buyingPrice: 99.99,
+      sellingPrice: 99.99,
       store: new mongoose.Types.ObjectId(),
       createdBy: new mongoose.Types.ObjectId(),
     });

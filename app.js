@@ -25,21 +25,32 @@ app.set("trust proxy", 1);
 
 connectDB();
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-// CORS - only allow frontend origins
-const allowedOrigins = [
+// CORS - allow configured production origins
+const defaultOrigins = [
+  "https://vyaparsakha.store",
+  "https://www.vyaparsakha.store",
+  "https://api.vyaparsakha.store",
   "https://vyapar-sathi.vercel.app",
   "http://localhost:3000",
+  "http://localhost:5173",
 ];
+
+const envOrigins = (process.env.ALLOWED_ORIGINS || process.env.FRONTEND_URL || "")
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+const allowedOrigins = Array.from(new Set([...defaultOrigins, ...envOrigins]));
 
 app.use(
   cors({
     origin: (origin, callback) => {
       // Allow requests with no origin (e.g. mobile apps, curl, Postman)
       if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) {
+      if (allowedOrigins.includes(origin) || allowedOrigins.some((o) => origin.startsWith(o))) {
         return callback(null, true);
       }
       return callback(new Error(`CORS: Origin '${origin}' not allowed`), false);
