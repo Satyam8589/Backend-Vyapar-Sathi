@@ -16,6 +16,7 @@ import emailRoutes from "./modules/email/email.routes.js";
 import queueRoutes from "./router/queue.routes.js";
 import automationRoutes from "./modules/automation/automation.routes.js";
 import "./workers/expressWorker.js";
+import "./workers/notificationWorker.js";
 
 
 const app = express();

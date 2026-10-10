@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { Seller } from '../../models/index.js';
+import { Seller, Purchase, PurchaseReturn } from '../../models/index.js';
 
 /**
  * Create a new seller for a store
@@ -123,5 +123,162 @@ export const getSellerStats = async (storeId) => {
     totalPurchaseAmount: 0,
     totalPaid: 0,
     totalDue: 0,
+  };
+};
+
+/**
+ * Get supplier purchase history with filtering, searching, and pagination
+ */
+export const getSellerPurchasesService = async (storeId, sellerId, query) => {
+  const { 
+    page = 1, 
+    limit = 10, 
+    search = '', 
+    startDate, 
+    endDate, 
+    paymentStatus, 
+    returnStatus 
+  } = query;
+
+  const filter = {
+    store: new mongoose.Types.ObjectId(storeId),
+    seller: new mongoose.Types.ObjectId(sellerId)
+  };
+
+  if (startDate || endDate) {
+    filter.purchaseDate = {};
+    if (startDate) filter.purchaseDate.$gte = new Date(startDate);
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      filter.purchaseDate.$lte = end;
+    }
+  }
+
+  if (paymentStatus) {
+    filter.paymentStatus = paymentStatus;
+  }
+
+  if (returnStatus) {
+    if (returnStatus === 'No Return') filter.returnStatus = { $nin: ['Returned', 'Partially Returned'] };
+    else filter.returnStatus = returnStatus;
+  }
+
+  if (search) {
+    filter.invoiceNumber = new RegExp(search, 'i');
+  }
+
+  const skip = (Number(page) - 1) * Number(limit);
+
+  const [purchases, total] = await Promise.all([
+    Purchase.find(filter)
+      .sort({ purchaseDate: -1, createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit))
+      .lean(),
+    Purchase.countDocuments(filter)
+  ]);
+
+  return {
+    purchases,
+    pagination: {
+      total,
+      page: Number(page),
+      limit: Number(limit),
+      totalPages: Math.ceil(total / Number(limit))
+    }
+  };
+};
+
+/**
+ * Get supplier purchase summary (aggregations)
+ */
+export const getSellerPurchaseSummaryService = async (storeId, sellerId) => {
+  const storeObjectId = new mongoose.Types.ObjectId(storeId);
+  const sellerObjectId = new mongoose.Types.ObjectId(sellerId);
+
+  // Get gross purchase stats
+  const purchaseStats = await Purchase.aggregate([
+    { $match: { store: storeObjectId, seller: sellerObjectId } },
+    {
+      $group: {
+        _id: null,
+        totalPurchase: { $sum: "$grandTotal" },
+        amountPaid: { $sum: "$paidAmount" },
+        amountDue: { $sum: "$dueAmount" },
+        purchaseCount: { $sum: 1 }
+      }
+    }
+  ]);
+
+  // Get return stats
+  const returnStats = await PurchaseReturn.aggregate([
+    { $match: { store: storeObjectId, seller: sellerObjectId } },
+    {
+      $group: {
+        _id: null,
+        returnedAmount: { $sum: "$refundAmount" },
+        returnCount: { $sum: 1 },
+        returnedQuantity: { 
+          $sum: {
+            $sum: "$items.quantity"
+          }
+        }
+      }
+    }
+  ]);
+
+  const pStats = purchaseStats[0] || {
+    totalPurchase: 0,
+    amountPaid: 0,
+    amountDue: 0,
+    purchaseCount: 0
+  };
+
+  const rStats = returnStats[0] || {
+    returnedAmount: 0,
+    returnCount: 0,
+    returnedQuantity: 0
+  };
+
+  const netPurchase = pStats.totalPurchase - rStats.returnedAmount;
+
+  // Trend (last 6 months)
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+  sixMonthsAgo.setDate(1);
+
+  const trendStats = await Purchase.aggregate([
+    { 
+      $match: { 
+        store: storeObjectId, 
+        seller: sellerObjectId,
+        purchaseDate: { $gte: sixMonthsAgo }
+      } 
+    },
+    {
+      $group: {
+        _id: { 
+          year: { $year: "$purchaseDate" }, 
+          month: { $month: "$purchaseDate" } 
+        },
+        total: { $sum: "$grandTotal" }
+      }
+    },
+    { $sort: { "_id.year": 1, "_id.month": 1 } }
+  ]);
+
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const trend = trendStats.map(t => ({
+    month: months[t._id.month - 1],
+    year: t._id.year,
+    purchase: t.total
+  }));
+
+  return {
+    ...pStats,
+    ...rStats,
+    netPurchase,
+    trend
   };
 };
