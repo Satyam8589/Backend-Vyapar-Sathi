@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 import { Purchase, Payment, Seller, Store } from '../../models/index.js';
 import { ApiError } from '../../utils/ApiError.js';
-import { createNotificationService } from '../notification/notification.service.js';
+import { notifyPaymentReceived } from '../../events/notificationEvents.js';
 
 export const recordPurchasePayment = async (storeId, purchaseId, userId, data) => {
   const { amount, paymentMethod, paymentDate, referenceNumber, notes } = data;
@@ -61,31 +61,13 @@ export const recordPurchasePayment = async (storeId, purchaseId, userId, data) =
     await session.commitTransaction();
     session.endSession();
 
-    // Fire & forget notifications (outside transaction)
-    try {
-      await createNotificationService({
-        store: storeId,
-        type: 'payment',
-        title: 'Supplier Payment Recorded',
-        message: `₹${amount} payment recorded for invoice ${purchase.invoiceNumber}.`,
-        link: `/storeDashboard/${storeId}/purchases/${purchaseId}`,
-        priority: 'normal'
-      });
-
-      if (purchase.paymentStatus === 'paid') {
-        await createNotificationService({
-          store: storeId,
-          type: 'payment',
-          title: 'Invoice Fully Paid',
-          message: `Invoice ${purchase.invoiceNumber} is now fully paid.`,
-          link: `/storeDashboard/${storeId}/purchases/${purchaseId}`,
-          priority: 'low'
-        });
-      }
-    } catch (notifErr) {
-      console.error('Failed to create payment notification', notifErr);
-    }
-
+    // Fire & forget event-driven notification (outside transaction)
+    notifyPaymentReceived({
+      storeId,
+      amount,
+      invoiceNumber: purchase.invoiceNumber,
+      user: userId,
+    });
     return { payment: payment[0], purchase };
   } catch (error) {
     await session.abortTransaction();

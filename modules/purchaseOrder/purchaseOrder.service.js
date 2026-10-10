@@ -5,7 +5,7 @@ import Store from '../../models/store.model.js';
 import Seller from '../../models/seller.model.js';
 import Purchase from '../../models/purchase.model.js';
 import GRN from '../../models/grn.model.js';
-import { createNotificationService } from '../notification/notification.service.js';
+import { notifyPurchaseOrderPending, notifyGRNCreated, notifyPurchaseCreated } from '../../events/notificationEvents.js';
 import { Notification } from '../../models/index.js';
 
 export const createPurchaseOrder = async (storeId, data) => {
@@ -63,20 +63,12 @@ export const createPurchaseOrder = async (storeId, data) => {
 
     await newPO.save();
 
-    // Create a notification for Pending PO
-    try {
-        await createNotificationService({
-            storeId,
-            type: 'PURCHASE_ORDER_PENDING',
-            title: 'Purchase Order Pending',
-            message: `Purchase Order ${poNumber} is waiting for approval.`,
-            relatedEntityType: 'PurchaseOrder',
-            relatedEntityId: newPO._id,
-            priority: 'MEDIUM'
-        });
-    } catch (err) {
-        console.error('Failed to create PO Pending notification:', err);
-    }
+    // Trigger non-blocking event-driven notification for Pending PO
+    notifyPurchaseOrderPending({
+        storeId,
+        po: newPO,
+        user: data.userId || null
+    });
 
     return newPO;
 };
@@ -291,6 +283,22 @@ export const receivePurchaseOrderItems = async (storeId, poId, receiveData, user
 
         await session.commitTransaction();
         session.endSession();
+
+        // Trigger non-blocking event-driven notifications for GRN and Purchase
+        notifyGRNCreated({
+            storeId,
+            grn: newGRN,
+            poNumber: po.poNumber,
+            user: userId
+        });
+
+        if (newPurchase) {
+            notifyPurchaseCreated({
+                storeId,
+                purchase: newPurchase,
+                user: userId
+            });
+        }
 
         return { purchaseOrder: po, purchase: newPurchase, grn: newGRN };
     } catch (error) {

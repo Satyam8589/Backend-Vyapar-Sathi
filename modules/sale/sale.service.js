@@ -4,6 +4,7 @@ import { assertCartAccess } from "../store/storeAccess.service.js";
 import { sendLowStockNotificationEmail } from "../../utils/mailer.js";
 import { createBuyer } from "../buyer/buyer.service.js";
 import { checkInventoryAlertsService } from "../notification/notification.service.js";
+import { notifySaleCreated } from "../../events/notificationEvents.js";
 
 const buildSaleItems = (cart) =>
   cart.products.map((item) => {
@@ -231,6 +232,13 @@ export const materializeSaleFromCart = async (cartId, userId) => {
     cart.status = "completed";
     await cart.save();
   }
+
+  // Trigger event-driven notification for store
+  notifySaleCreated({
+    storeId: cart.store,
+    sale,
+    user: userId,
+  });
 
   return {
     sale,

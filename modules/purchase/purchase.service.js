@@ -4,7 +4,8 @@ import PurchaseReturn from "../../models/purchaseReturn.model.js";
 import Product from "../../models/product.model.js";
 import Inventory from "../../models/inventory.model.js";
 import { ApiError } from "../../utils/ApiError.js";
-import { createNotificationService, checkInventoryAlertsService } from "../notification/notification.service.js";
+import { notifyPurchaseCreated, notifyPurchaseUpdated, notifyPurchaseReturned } from "../../events/notificationEvents.js";
+import { checkInventoryAlertsService } from "../notification/notification.service.js";
 
 /**
  * Increment product stock after a purchase.
@@ -138,29 +139,12 @@ export const createPurchase = async (purchaseData, storeId) => {
     console.error("[PURCHASE SERVICE] Partial stock update errors:", stockErrors);
   }
 
-  // Generate success notification
-  await createNotificationService({
+  // Trigger non-blocking event-driven notifications
+  notifyPurchaseCreated({
     storeId,
-    type: 'PURCHASE_CREATED',
-    title: 'Purchase Created',
-    message: `Purchase ${savedPurchase.invoiceNumber} created successfully.`,
-    relatedEntityType: 'Purchase',
-    relatedEntityId: savedPurchase._id,
-    priority: 'LOW'
+    purchase: savedPurchase,
+    user: userId,
   });
-
-  // Generate payment due notification if applicable
-  if (savedPurchase.dueAmount > 0) {
-    await createNotificationService({
-      storeId,
-      type: 'PURCHASE_DUE',
-      title: 'Payment Due',
-      message: `₹${savedPurchase.dueAmount} due for Purchase ${savedPurchase.invoiceNumber}.`,
-      relatedEntityType: 'Purchase',
-      relatedEntityId: savedPurchase._id,
-      priority: 'MEDIUM'
-    });
-  }
 
   return {
     ...savedPurchase.toObject(),
@@ -311,28 +295,12 @@ export const updatePurchase = async (purchaseId, updateData, storeId) => {
     }
   }
 
-  // Generate update notification
-  await createNotificationService({
+  // Trigger non-blocking event-driven notification
+  notifyPurchaseUpdated({
     storeId,
-    type: 'PURCHASE_UPDATED',
-    title: 'Purchase Updated',
-    message: `Purchase ${purchase.invoiceNumber} was updated successfully.`,
-    relatedEntityType: 'Purchase',
-    relatedEntityId: purchase._id,
-    priority: 'LOW'
+    purchase,
+    user: userId,
   });
-
-  if (purchase.dueAmount > 0) {
-    await createNotificationService({
-      storeId,
-      type: 'PURCHASE_DUE',
-      title: 'Payment Due',
-      message: `₹${purchase.dueAmount} due for Purchase ${purchase.invoiceNumber}.`,
-      relatedEntityType: 'Purchase',
-      relatedEntityId: purchase._id,
-      priority: 'MEDIUM'
-    });
-  }
 
   return purchase;
 };
@@ -506,14 +474,11 @@ export const createPurchaseReturn = async (purchaseId, storeId, returnData) => {
 
     // Generate return notification outside of the transaction
     if (purchaseReturn) {
-      await createNotificationService({
+      notifyPurchaseReturned({
         storeId,
-        type: 'PURCHASE_RETURNED',
-        title: 'Purchase Returned',
-        message: `Return completed for Purchase Invoice. Amount: ₹${purchaseReturn.totalReturnAmount}`,
-        relatedEntityType: 'PurchaseReturn',
-        relatedEntityId: purchaseReturn._id,
-        priority: 'LOW'
+        returnRecord: purchaseReturn,
+        invoiceNumber: purchase?.invoiceNumber,
+        user: userId,
       });
     }
 

@@ -1,6 +1,8 @@
 import { Notification, Inventory } from '../../models/index.js';
 import { ApiError } from '../../utils/ApiError.js';
 import { getPagination } from '../../utils/pagination.js';
+import { broadcastToStore } from '../../utils/websocket.js';
+import { sendPushNotification } from '../../utils/pusher.js';
 
 /**
  * Create a new notification with deduplication logic
@@ -66,6 +68,15 @@ export const createNotificationService = async ({
   });
 
   await notification.save();
+  broadcastToStore(storeId.toString(), 'NEW_NOTIFICATION', notification);
+
+  // Send Push Notification asynchronously via Pusher Beams
+  sendPushNotification({
+    interests: ['hello', `store-${storeId.toString()}`],
+    title: title || 'Vyapar Sathi Alert',
+    body: message || 'You have a new update.',
+  }).catch((err) => console.error('[Push Notification Error]:', err));
+
   return notification;
 };
 

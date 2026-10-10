@@ -7,9 +7,13 @@ import { PERMISSIONS } from '../../utils/permissions.js';
 
 const router = express.Router({ mergeParams: true });
 
-router.use(authMiddleware, requireUser, requirePermission(PERMISSIONS.INVENTORY_MANAGE));
+router.use(authMiddleware);
+router.use(requireUser);
 
-router.get('/', getGRNsController);
-router.get('/:id', getGRNByIdController);
+router.route('/:storeId')
+    .get(requirePermission(PERMISSIONS.INVENTORY_MANAGE), getGRNsController);
+
+router.route('/:storeId/:id')
+    .get(requirePermission(PERMISSIONS.INVENTORY_MANAGE), getGRNByIdController);
 
 export default router;

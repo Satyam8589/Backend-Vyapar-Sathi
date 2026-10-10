@@ -24,6 +24,9 @@ const notificationSchema = new mongoose.Schema({
             'PURCHASE_RETURNED', 
             'PURCHASE_ORDER_PENDING',
             'PURCHASE_ORDER_OVERDUE',
+            'SALE_CREATED',
+            'GRN_CREATED',
+            'PAYMENT_RECEIVED',
             'SYSTEM_ERROR'
         ],
         required: true,
@@ -41,7 +44,7 @@ const notificationSchema = new mongoose.Schema({
     },
     relatedEntityType: {
         type: String,
-        enum: ['Product', 'Purchase', 'PurchaseReturn', 'PurchaseOrder', 'Inventory', null],
+        enum: ['Product', 'Purchase', 'PurchaseReturn', 'PurchaseOrder', 'Inventory', 'Sale', 'GRN', null],
         default: null
     },
     relatedEntityId: {

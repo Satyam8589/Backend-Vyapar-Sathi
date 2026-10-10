@@ -9,6 +9,10 @@ const HOST = "0.0.0.0";
 
 const server = http.createServer(app);
 
+// Initialize WebSockets for real-time notifications (Firebase Auth enabled)
+import { initWebSocket } from "./utils/websocket.js";
+initWebSocket(server);
+
 // Proxy configuration for FastAPI AI Service (WebSockets)
 const aiServiceUrl = process.env.AI_SERVICE_URL || "http://127.0.0.1:8000";
 

@@ -40,7 +40,8 @@
     "nodemon": "^3.1.11",
     "pdfkit": "^0.20.2",
     "resend": "^4.8.0",
-    "router": "^2.2.0"
+    "router": "^2.2.0",
+    "ws": "^8.22.0"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
