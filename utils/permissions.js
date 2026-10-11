@@ -3,6 +3,7 @@ export const PERMISSIONS = {
   BILLING_CREATE:         "billing:create",      // Can create bills & view history
   INVENTORY_ADD:          "inventory:add",       // Can add new products
   INVENTORY_MANAGE:       "inventory:manage",    // Can edit and delete products
+  REPORTS_VIEW_SALES:     "reports:view_sales",  // Can view sales analytics & reports
 };
 
 // All permission values as a flat array (used for validation)
@@ -24,6 +25,7 @@ export const SYSTEM_ROLES = {
       "billing:create",
       "inventory:add",
       "inventory:manage",
+      "reports:view_sales",
     ],
   },
 

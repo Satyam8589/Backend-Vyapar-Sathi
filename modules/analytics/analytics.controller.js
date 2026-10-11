@@ -5,6 +5,7 @@ import {
   getStoreSummary,
   getStoreTrend,
   getStoreCategoryPerformance,
+  getStoreComprehensiveOverview,
 } from "./storeAnalytics.service.js";
 import {
   getTopProducts,
@@ -243,6 +244,20 @@ export const getProductProfitController = async (req, res) => {
     res
       .status(200)
       .json(new ApiResponse(productProfit, "Product-wise profit analytics fetched successfully", 200));
+  } catch (error) {
+    handleControllerError(res, error);
+  }
+};
+
+export const getStoreComprehensiveOverviewController = async (req, res) => {
+  try {
+    validateObjectId(req.params.storeId, "storeId");
+
+    const overview = await getStoreComprehensiveOverview(req.params.storeId);
+
+    res
+      .status(200)
+      .json(new ApiResponse(overview, "Comprehensive store overview fetched successfully", 200));
   } catch (error) {
     handleControllerError(res, error);
   }

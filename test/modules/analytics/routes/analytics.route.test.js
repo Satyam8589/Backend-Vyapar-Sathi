@@ -50,6 +50,18 @@ const mockGetProductOverviewController = jest.fn((req, res) => {
   });
 });
 
+const mockGetProfitLossController = jest.fn((req, res) => {
+  res.status(200).json({ route: "profit-loss", storeId: req.params.storeId });
+});
+
+const mockGetProductProfitController = jest.fn((req, res) => {
+  res.status(200).json({ route: "product-profit", storeId: req.params.storeId });
+});
+
+const mockGetStoreComprehensiveOverviewController = jest.fn((req, res) => {
+  res.status(200).json({ route: "store-overview", storeId: req.params.storeId });
+});
+
 jest.unstable_mockModule("../../../../middlewares/auth.middleware.js", () => ({
   default: mockAuthMiddleware,
 }));
@@ -75,6 +87,9 @@ jest.unstable_mockModule("../../../../modules/analytics/analytics.controller.js"
   getTopProductsController: mockGetTopProductsController,
   getSlowMovingProductsController: mockGetSlowMovingProductsController,
   getProductOverviewController: mockGetProductOverviewController,
+  getProfitLossController: mockGetProfitLossController,
+  getProductProfitController: mockGetProductProfitController,
+  getStoreComprehensiveOverviewController: mockGetStoreComprehensiveOverviewController,
 }));
 
 const { default: analyticsRouter } = await import(
@@ -149,6 +164,23 @@ describe("analytics.routes", () => {
 
     expect(mockRequirePermissionMiddleware).toHaveBeenCalledTimes(1);
     expect(mockGetProductOverviewController).toHaveBeenCalledTimes(1);
+  });
+
+  test("GET /store/:storeId/overview reaches store overview controller", async () => {
+    const app = express();
+    app.use(express.json());
+    app.use("/analytics", analyticsRouter);
+
+    const response = await request(app).get("/analytics/store/store-1/overview");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({
+      route: "store-overview",
+      storeId: "store-1",
+    });
+
+    expect(mockRequirePermissionMiddleware).toHaveBeenCalledTimes(1);
+    expect(mockGetStoreComprehensiveOverviewController).toHaveBeenCalledTimes(1);
   });
 
   test("invalid route returns 404", async () => {
