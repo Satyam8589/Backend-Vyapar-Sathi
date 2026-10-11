@@ -12,12 +12,18 @@ import {
 	getProductOverviewController,
 	getProfitLossController,
 	getProductProfitController,
+	getStoreComprehensiveOverviewController,
 } from "./analytics.controller.js";
 
 const router = Router();
 
 router.use(authMiddleware);
 router.use(requireUser);
+
+router.get(
+	"/store/:storeId/overview",
+	getStoreComprehensiveOverviewController
+);
 
 router.get(
 	"/store/:storeId/summary",
