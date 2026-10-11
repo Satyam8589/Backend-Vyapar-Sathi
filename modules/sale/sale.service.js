@@ -2,6 +2,9 @@ import { Product, Sale, Store, Inventory } from "../../models/index.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { assertCartAccess } from "../store/storeAccess.service.js";
 import { sendLowStockNotificationEmail } from "../../utils/mailer.js";
+import { createBuyer } from "../buyer/buyer.service.js";
+import { checkInventoryAlertsService } from "../notification/notification.service.js";
+import { notifySaleCreated } from "../../events/notificationEvents.js";
 
 const buildSaleItems = (cart) =>
   cart.products.map((item) => {
@@ -67,6 +70,9 @@ const decrementInventory = async (cart) => {
         if (inv) {
           inv.quantity = Math.max(0, updatedProd?.quantity ?? (inv.quantity - qtyToSubtract));
           await inv.save();
+          await checkInventoryAlertsService(cart.store, productId, inv.quantity, inv.minStockLevel || 10);
+        } else {
+          await checkInventoryAlertsService(cart.store, productId, updatedProd.quantity, 10);
         }
       } catch (invErr) {
         console.warn("[SALE SERVICE] Could not update Inventory record:", invErr.message);
@@ -186,11 +192,16 @@ export const materializeSaleFromCart = async (cartId, userId) => {
     store: cart.store,
     user: cart.user,
     cart: cart._id,
+    buyer: cart.buyer || null,
+    customerName: cart.customerName || "Walk-in Customer",
+    customerPhone: cart.customerPhone || "",
+    customerEmail: cart.customerEmail || "",
     items,
     totalAmount: cart.totalPrice || items.reduce((sum, item) => sum + item.lineTotal, 0),
     subtotal: cart.subtotal || totalAmount,
     discount: cart.discount || { type: "fixed", value: 0, amount: 0 },
     paymentId: cart.paymentId || null,
+    paymentMethod: cart.paymentMethod || (cart.paymentId ? cart.paymentId.split("-")[0] : "cash"),
     completedAt: isBackfillForCompletedCart ? cart.updatedAt || new Date() : new Date(),
   });
 
@@ -198,10 +209,36 @@ export const materializeSaleFromCart = async (cartId, userId) => {
     `[SALE SERVICE] Created sale snapshot for cart=${cartId} sale=${sale._id} mode=${isBackfillForCompletedCart ? "backfill" : "live"}`
   );
 
+  // Auto-update or create Buyer stats for store
+  const phone = cart.customerPhone?.trim();
+  const name = cart.customerName?.trim();
+  if (cart.buyer || (phone && phone !== "N/A" && phone !== "")) {
+    try {
+      await createBuyer(cart.store, {
+        buyerId: cart.buyer,
+        name: name && name !== "Walk-in Customer" ? name : "Customer",
+        phone: phone || "N/A",
+        email: cart.customerEmail || "",
+        totalSales: sale.totalAmount,
+        totalPaid: sale.paidAmount,
+        totalDue: sale.dueAmount,
+      });
+    } catch (buyerErr) {
+      console.warn("[SALE SERVICE] Could not update buyer stats:", buyerErr.message);
+    }
+  }
+
   if (cart.status !== "completed") {
     cart.status = "completed";
     await cart.save();
   }
+
+  // Trigger event-driven notification for store
+  notifySaleCreated({
+    storeId: cart.store,
+    sale,
+    user: userId,
+  });
 
   return {
     sale,

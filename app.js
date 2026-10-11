@@ -16,6 +16,7 @@ import emailRoutes from "./modules/email/email.routes.js";
 import queueRoutes from "./router/queue.routes.js";
 import automationRoutes from "./modules/automation/automation.routes.js";
 import "./workers/expressWorker.js";
+import "./workers/notificationWorker.js";
 
 
 const app = express();
@@ -25,8 +26,8 @@ app.set("trust proxy", 1);
 
 connectDB();
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 // CORS - allow configured production origins
 const defaultOrigins = [

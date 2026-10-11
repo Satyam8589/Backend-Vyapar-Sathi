@@ -33,14 +33,16 @@ const productSchema = new mongoose.Schema({
     },
     sellingPrice: {
         type: Number,
-        required: [true, 'Selling price is required'],
-        min: [0, 'Selling price cannot be negative']
+        required: [true, 'Price is required'],
+        min: [0, 'Price cannot be negative'],
+        alias: 'price'
     },
 
     buyingPrice: {
         type: Number,
-        required: [true, 'Buying price is required'],
-        min: [0, 'Buying price cannot be negative']
+        required: false,
+        min: [0, 'Buying price cannot be negative'],
+        default: 0
     },
     
     quantity: {
@@ -98,8 +100,9 @@ const productSchema = new mongoose.Schema({
         required: true
     }
 }, {
-    timestamps: true
-});
+    timestamps: true,
+    toJSON: { virtuals: true },
+    });
 
 productSchema.index({ name: 'text' });
 // Unique barcode per store, but ONLY if barcode is provided (handles multiple null/empty barcodes)

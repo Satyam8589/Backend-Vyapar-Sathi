@@ -26,6 +26,11 @@ const purchaseItemSchema = new mongoose.Schema({
         default: 0,
         min: [0, 'Tax cannot be negative']
     },
+    returnedQuantity: {
+        type: Number,
+        default: 0,
+        min: [0, 'Returned quantity cannot be negative']
+    },
     subtotal: {
         type: Number,
         required: true,
@@ -95,6 +100,12 @@ const purchaseSchema = new mongoose.Schema({
         type: String,
         enum: ['paid', 'partial', 'unpaid'],
         default: 'unpaid',
+        index: true
+    },
+    returnStatus: {
+        type: String,
+        enum: ['none', 'partial', 'full'],
+        default: 'none',
         index: true
     },
     notes: {

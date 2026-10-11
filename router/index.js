@@ -10,6 +10,9 @@ import analyticsRoutes from "../modules/analytics/analytics.route.js";
 import sellerRoutes from "../modules/seller/seller.routes.js";
 import purchaseRoutes from "../modules/purchase/purchase.routes.js";
 import buyerRoutes from "../modules/buyer/buyer.routes.js";
+import notificationRoutes from "../modules/notification/notification.routes.js";
+import purchaseOrderRoutes from "../modules/purchaseOrder/purchaseOrder.routes.js";
+import grnRoutes from "../modules/grn/grn.routes.js";
 import { Router } from "express";
 
 const router = Router();
@@ -29,6 +32,9 @@ router.use("/analytics", analyticsRoutes);
 router.use("/sellers", sellerRoutes);
 router.use("/purchases", purchaseRoutes);
 router.use("/buyers", buyerRoutes);
+router.use("/notifications", notificationRoutes);
+router.use("/purchase-orders", purchaseOrderRoutes);
+router.use("/grns", grnRoutes);
 
 export default router;
 

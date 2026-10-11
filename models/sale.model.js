@@ -68,6 +68,21 @@ const saleSchema = new mongoose.Schema(
       default: null,
       index: true,
     },
+    customerName: {
+      type: String,
+      trim: true,
+      default: "Walk-in Customer",
+    },
+    customerPhone: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    customerEmail: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     items: {
       type: [saleItemSchema],
       default: [],
@@ -126,6 +141,11 @@ const saleSchema = new mongoose.Schema(
       type: String,
       trim: true,
       default: null,
+    },
+    paymentMethod: {
+      type: String,
+      trim: true,
+      default: "cash",
     },
     completedAt: {
       type: Date,
