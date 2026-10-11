@@ -5,7 +5,6 @@ import {
   getStoreSummary,
   getStoreTrend,
   getStoreCategoryPerformance,
-  getStoreComprehensiveOverview,
 } from "./storeAnalytics.service.js";
 import {
   getTopProducts,
@@ -16,6 +15,7 @@ import {
   getProfitLossSummary,
   getProductWiseProfit
 } from "./profitLossAnalytics.service.js";
+import { getStoreComprehensiveOverview } from "./overviewAnalytics.service.js";
 
 const MAX_RANGE_DAYS = 180;
 
@@ -39,8 +39,8 @@ const parseDateRange = (query) => {
   const startDate = query.range
     ? new Date(endDate.getTime() - (rangeDays[query.range] - 1) * 24 * 60 * 60 * 1000)
     : query.startDate
-    ? new Date(query.startDate)
-    : new Date(endDate.getTime() - 29 * 24 * 60 * 60 * 1000);
+      ? new Date(query.startDate)
+      : new Date(endDate.getTime() - 29 * 24 * 60 * 60 * 1000);
 
   if (Number.isNaN(startDate.getTime())) {
     throw new ApiError("Invalid startDate. Use ISO format (YYYY-MM-DD).", 400);
@@ -252,8 +252,11 @@ export const getProductProfitController = async (req, res) => {
 export const getStoreComprehensiveOverviewController = async (req, res) => {
   try {
     validateObjectId(req.params.storeId, "storeId");
+    const overview = await getStoreComprehensiveOverview(
+      req.params.storeId,
+      req.user._id
+    );
 
-    const overview = await getStoreComprehensiveOverview(req.params.storeId);
 
     res
       .status(200)

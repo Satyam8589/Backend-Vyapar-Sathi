@@ -4,6 +4,7 @@ import { Employee } from "../../models/index.js";
 import { ALL_PERMISSIONS } from "../../utils/permissions.js";
 import { seedSystemRoles } from "../role/role.service.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
+import { getStoreComprehensiveOverview } from "../analytics/overviewAnalytics.service.js";
 
 //create store controller
 export const storeCreateController = async (req, res) => {
@@ -117,3 +118,15 @@ export const storeSendInstantStockAlertController = async (req, res) => {
         res.status(error.statusCode || 500).json(new ApiResponse(null, error.message, error.statusCode || 500));
     }
 };
+
+// get comprehensive store overview (inventory, sales, purchases, sellers, products)
+export const storeOverviewController = async (req, res) => {
+    try {
+        const { storeId } = req.params;
+        const overview = await getStoreComprehensiveOverview(storeId, req.user._id);
+        res.status(200).json(new ApiResponse(overview, "Store comprehensive overview fetched successfully", 200));
+    } catch (error) {
+        res.status(error.statusCode || 500).json(new ApiResponse(null, error.message, error.statusCode || 500));
+    }
+};
+

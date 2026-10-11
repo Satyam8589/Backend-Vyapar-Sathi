@@ -120,8 +120,8 @@ All API endpoints are prefixed with `/api`. Most routes are protected and requir
 > [!NOTE]
 > These endpoints require specific permissions like `REPORTS_VIEW_SALES` as they expose sensitive business data.
 
-| Method | Endpoint | Description | Auth Required |
-|--------|----------|-------------|---------------|
+| `GET` | `/api/analytics/store/:storeId/overview` | Retrieves unified store overview (inventory, sales, purchases, sellers, products, charts). | Yes |
+| `GET` | `/api/store/:storeId/overview` | Alias to retrieve unified store overview. | Yes |
 | `GET` | `/api/analytics/store/:storeId/summary` | Retrieves a high-level summary of store analytics. | Yes |
 | `GET` | `/api/analytics/store/:storeId/trends` | Retrieves sales trends over time. | Yes |
 | `GET` | `/api/analytics/store/:storeId/categories`| Retrieves performance metrics broken down by product categories. | Yes |

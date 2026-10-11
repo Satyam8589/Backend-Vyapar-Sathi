@@ -179,7 +179,8 @@ describe("analytics.routes", () => {
       storeId: "store-1",
     });
 
-    expect(mockRequirePermissionMiddleware).toHaveBeenCalledTimes(1);
+    expect(mockAuthMiddleware).toHaveBeenCalledTimes(1);
+    expect(mockRequireUser).toHaveBeenCalledTimes(1);
     expect(mockGetStoreComprehensiveOverviewController).toHaveBeenCalledTimes(1);
   });
 

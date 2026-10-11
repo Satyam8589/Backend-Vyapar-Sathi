@@ -6,8 +6,8 @@ import {
   storeDeleteController,
   storeGetAllController,
   storeSendInstantStockAlertController,
+  storeOverviewController,
 } from "./store.controller.js";
-import { getStoreComprehensiveOverviewController } from "../analytics/analytics.controller.js";
 import authMiddleware from "../../middlewares/auth.middleware.js";
 import requireUser from "../../middlewares/requireUser.middleware.js";
 import roleRoutes from "../role/role.routes.js";
@@ -26,7 +26,8 @@ router.route("/create").post(storeCreateController);
 router.use("/:storeId/roles", roleRoutes);
 router.use("/:storeId/employees", employeeRoutes);
 
-router.route("/:storeId/overview").get(getStoreComprehensiveOverviewController);
+router.route("/:storeId/overview").get(storeOverviewController);
+
 router.route("/:storeId").get(storeGetController);
 router.route("/:storeId").put(storeUpdateController);
 router.route("/:storeId").delete(storeDeleteController);

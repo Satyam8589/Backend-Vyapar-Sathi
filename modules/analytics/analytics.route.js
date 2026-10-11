@@ -22,7 +22,6 @@ router.use(requireUser);
 
 router.get(
 	"/store/:storeId/overview",
-	requirePermission(),
 	getStoreComprehensiveOverviewController
 );
 
