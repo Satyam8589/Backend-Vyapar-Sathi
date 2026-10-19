@@ -31,6 +31,11 @@ const userSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.Mixed,
         default: {}
     },
+    preferredLanguage: {
+        type: String,
+        enum: ['en', 'hi', 'bn'],
+        default: 'en'
+    },
     createdAt: { 
         type: Date, 
         default: Date.now 

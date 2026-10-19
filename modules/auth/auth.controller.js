@@ -99,12 +99,13 @@ export const updateUserProfile = async (req, res) => {
             });
         }
 
-        const { name, phone, preferences, profilePicture } = req.body;
+        const { name, phone, preferences, profilePicture, preferredLanguage } = req.body;
         const updatedUser = await authService.updateUserProfile(firebaseUid, {
             name,
             phone,
             preferences,
-            profilePicture
+            profilePicture,
+            preferredLanguage
         });
 
         return res.status(200).json({

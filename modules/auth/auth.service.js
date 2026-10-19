@@ -66,12 +66,13 @@ export const formatUserResponse = (user) => {
         profilePicture: user.profilePicture,
         phone: user.phone || null,
         preferences: user.preferences || {},
+        preferredLanguage: user.preferredLanguage || 'en',
         createdAt: user.createdAt,
         updatedAt: user.updatedAt
     };
 }
 
-export const updateUserProfile = async (firebaseUid, { name, phone, preferences, profilePicture }) => {
+export const updateUserProfile = async (firebaseUid, { name, phone, preferences, profilePicture, preferredLanguage }) => {
     try {
         const user = await User.findOne({ firebaseUid });
         if (!user) {
@@ -82,6 +83,12 @@ export const updateUserProfile = async (firebaseUid, { name, phone, preferences,
         if (phone !== undefined) user.phone = phone;
         if (preferences !== undefined) user.preferences = { ...(user.preferences || {}), ...preferences };
         if (profilePicture !== undefined) user.profilePicture = profilePicture;
+        if (preferredLanguage !== undefined) {
+            const allowed = ['en', 'hi', 'bn'];
+            if (allowed.includes(preferredLanguage)) {
+                user.preferredLanguage = preferredLanguage;
+            }
+        }
         user.updatedAt = new Date();
 
         await user.save();
