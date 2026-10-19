@@ -27,6 +27,7 @@ router.use("/:storeId/roles", roleRoutes);
 router.use("/:storeId/employees", employeeRoutes);
 
 router.route("/:storeId/overview").get(storeOverviewController);
+
 router.route("/:storeId").get(storeGetController);
 router.route("/:storeId").put(storeUpdateController);
 router.route("/:storeId").delete(storeDeleteController);

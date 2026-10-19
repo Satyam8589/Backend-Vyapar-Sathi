@@ -36,7 +36,7 @@ const requirePermission = (permissionKey) => {
         });
       }
 
-      if (employee.role.permissions.includes(permissionKey)) {
+      if (!permissionKey || employee.role.permissions.includes(permissionKey)) {
         req.store = store;
         req.employee = employee;
         req.userRole = employee.role.name;

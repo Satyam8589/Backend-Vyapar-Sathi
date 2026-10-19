@@ -1,4 +1,6 @@
-import { Inventory, Product, Sale } from "../../models/index.js";
+import { Inventory, Product, Sale, Store, Cart, Purchase, Seller } from "../../models/index.js";
+import { Types } from "mongoose";
+import { ApiError } from "../../utils/ApiError.js";
 
 const round = (value, precision = 2) => {
   if (!Number.isFinite(value)) {
@@ -226,6 +228,383 @@ export const getStoreCategoryPerformance = async (storeId, range, options = {}) 
     meta: {
       totalCategories: categoryMap.size,
       limit,
+    },
+  };
+};
+
+export const getStoreComprehensiveOverview = async (storeId) => {
+  const storeObjectId = Types.ObjectId.isValid(storeId) ? new Types.ObjectId(storeId) : storeId;
+
+  // 1. Fetch store, products, inventory docs, sales, carts, purchases, sellers in parallel
+  const [store, products, inventoryDocs, sales, carts, purchases, sellers] = await Promise.all([
+    Store.findById(storeId).lean(),
+    Product.find({ store: storeObjectId, isActive: true }).lean(),
+    Inventory.find({ store: storeObjectId, isActive: true }).populate("product").lean(),
+    Sale.find({ store: storeObjectId }).lean(),
+    Cart.find({ store: storeObjectId, status: "completed", paymentStatus: "paid" })
+      .populate("products.product")
+      .lean(),
+    Purchase.find({ store: storeObjectId }).lean(),
+    Seller.find({ store: storeObjectId }).lean(),
+  ]);
+
+  if (!store) {
+    throw new ApiError("Store not found", 404);
+  }
+
+  // Combine sales from Sale model and Cart model
+  const orderList = [];
+  const processedCartIds = new Set();
+
+  for (const s of sales) {
+    if (s.cart) {
+      processedCartIds.add(String(s.cart));
+    }
+    orderList.push({
+      _id: s._id,
+      amount: Number(s.totalAmount || 0),
+      date: new Date(s.completedAt || s.createdAt || Date.now()),
+      items: (s.items || []).map((it) => ({
+        name: it.nameSnapshot || "Unknown Product",
+        category: it.categorySnapshot || "General",
+        quantity: Number(it.quantity || 0),
+        unitPrice: Number(it.unitPrice || 0),
+        lineTotal: Number(it.lineTotal || (it.unitPrice || 0) * (it.quantity || 0)),
+      })),
+    });
+  }
+
+  for (const c of carts) {
+    if (!processedCartIds.has(String(c._id))) {
+      orderList.push({
+        _id: c._id,
+        amount: Number(c.totalPrice || c.totalAmount || 0),
+        date: new Date(c.completedAt || c.updatedAt || c.createdAt || Date.now()),
+        items: (c.products || []).map((it) => ({
+          name: it.product?.name || "Unknown Product",
+          category: it.product?.category || "General",
+          quantity: Number(it.quantity || 0),
+          unitPrice: Number(it.price || it.product?.sellingPrice || 0),
+          lineTotal: Number(it.price || it.product?.sellingPrice || 0) * Number(it.quantity || 0),
+        })),
+      });
+    }
+  }
+
+  // --- Date boundaries ---
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const sevenDaysAgo = new Date(todayStart);
+  sevenDaysAgo.setDate(todayStart.getDate() - 6);
+
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const lastMonthEnd = monthStart;
+
+  const yearStart = new Date(now.getFullYear(), 0, 1);
+  const nextYearStart = new Date(now.getFullYear() + 1, 0, 1);
+
+  let todaySales = 0;
+  let todayOrders = 0;
+  let weeklySales = 0;
+  let monthlySales = 0;
+  let lastMonthSales = 0;
+  let monthlyOrders = 0;
+  let lastMonthOrders = 0;
+  let yearlySales = 0;
+  let totalSales = 0;
+
+  const totalOrders = orderList.length;
+  const productSalesMap = new Map();
+
+  orderList.forEach((order) => {
+    const oDate = order.date;
+    const oAmount = order.amount;
+
+    totalSales += oAmount;
+
+    if (oDate >= todayStart) {
+      todaySales += oAmount;
+      todayOrders += 1;
+    }
+
+    if (oDate >= sevenDaysAgo) {
+      weeklySales += oAmount;
+    }
+
+    if (oDate >= monthStart && oDate < nextMonthStart) {
+      monthlySales += oAmount;
+      monthlyOrders += 1;
+    } else if (oDate >= lastMonthStart && oDate < lastMonthEnd) {
+      lastMonthSales += oAmount;
+      lastMonthOrders += 1;
+    }
+
+    if (oDate >= yearStart && oDate < nextYearStart) {
+      yearlySales += oAmount;
+    }
+
+    // Product breakdown
+    order.items.forEach((item) => {
+      const pName = item.name;
+      const existing = productSalesMap.get(pName) || {
+        name: pName,
+        unitsSold: 0,
+        revenue: 0,
+        quantity: 0,
+      };
+      existing.unitsSold += item.quantity;
+      existing.quantity += item.quantity;
+      existing.revenue += item.lineTotal;
+      productSalesMap.set(pName, existing);
+    });
+  });
+
+  const averageOrderValue = totalOrders > 0 ? Math.round(totalSales / totalOrders) : 0;
+  const monthlyAov = monthlyOrders > 0 ? monthlySales / monthlyOrders : 0;
+  const lastMonthAov = lastMonthOrders > 0 ? lastMonthSales / lastMonthOrders : 0;
+
+  // Growth helper
+  const getGrowth = (curr, prev) => {
+    if (prev === 0) {
+      if (curr === 0) {
+        return { value: 0, isPositive: true, isNeutral: true, text: "0% from last month" };
+      }
+      return { value: 100, isPositive: true, isNeutral: false, text: "↑ 100% from last month" };
+    }
+    const diff = ((curr - prev) / prev) * 100;
+    const rounded = Math.round(diff);
+    if (rounded > 0) {
+      return { value: rounded, isPositive: true, isNeutral: false, text: `↑ ${rounded}% from last month` };
+    } else if (rounded < 0) {
+      return { value: Math.abs(rounded), isPositive: false, isNeutral: false, text: `↓ ${Math.abs(rounded)}% from last month` };
+    }
+    return { value: 0, isPositive: true, isNeutral: true, text: "0% from last month" };
+  };
+
+  const salesGrowth = getGrowth(monthlySales, lastMonthSales);
+  const ordersGrowth = getGrowth(monthlyOrders, lastMonthOrders);
+  const aovGrowth = getGrowth(monthlyAov, lastMonthAov);
+
+  // --- Charts: Daily (7 days), Weekly (4 weeks), Quarterly (4 quarters) ---
+  const dailyBreakdown = [];
+  const dailyLabels = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(todayStart);
+    d.setDate(todayStart.getDate() - i);
+    const startOfD = d.getTime();
+    const endOfD = startOfD + 24 * 60 * 60 * 1000;
+    const label = d.toLocaleDateString("en-IN", { weekday: "short" });
+    dailyLabels.push(label);
+
+    const daySum = orderList.reduce((sum, ord) => {
+      const t = ord.date.getTime();
+      return t >= startOfD && t < endOfD ? sum + ord.amount : sum;
+    }, 0);
+    dailyBreakdown.push(round(daySum));
+  }
+
+  const weeklyBreakdown = [0, 0, 0, 0];
+  orderList.forEach((ord) => {
+    if (ord.date >= monthStart && ord.date < nextMonthStart) {
+      const dayOfMonth = ord.date.getDate();
+      const weekIdx = dayOfMonth <= 7 ? 0 : dayOfMonth <= 14 ? 1 : dayOfMonth <= 21 ? 2 : 3;
+      weeklyBreakdown[weekIdx] += ord.amount;
+    }
+  });
+  const roundedWeeklyBreakdown = weeklyBreakdown.map((w) => round(w));
+
+  const quarterlyBreakdown = [0, 0, 0, 0];
+  orderList.forEach((ord) => {
+    if (ord.date >= yearStart && ord.date < nextYearStart) {
+      const qIdx = Math.floor(ord.date.getMonth() / 3);
+      quarterlyBreakdown[qIdx] += ord.amount;
+    }
+  });
+  const roundedQuarterlyBreakdown = quarterlyBreakdown.map((q) => round(q));
+
+  // --- Inventory & Products ---
+  const defaultLowThreshold = store.settings?.lowStockThreshold || 10;
+  let totalQuantity = 0;
+  let totalValue = 0;
+  let totalCostValue = 0;
+  let lowStockCount = 0;
+  let outOfStockCount = 0;
+  let inStockCount = 0;
+
+  const criticalStockList = [];
+
+  if (inventoryDocs && inventoryDocs.length > 0) {
+    inventoryDocs.forEach((inv) => {
+      const qty = Number(inv.quantity || 0);
+      const sellPrice = Number(inv.sellingPrice ?? inv.product?.sellingPrice ?? 0);
+      const buyPrice = Number(inv.product?.buyingPrice ?? 0);
+      const minLevel = Number(inv.minStockLevel || defaultLowThreshold);
+
+      totalQuantity += qty;
+      totalValue += sellPrice * qty;
+      totalCostValue += buyPrice * qty;
+
+      if (qty === 0 || inv.isOutOfStock) {
+        outOfStockCount++;
+        criticalStockList.push({
+          _id: inv.product?._id || inv._id,
+          name: inv.product?.name || "Unknown Product",
+          category: inv.product?.category || "General",
+          quantity: qty,
+          minStockLevel: minLevel,
+        });
+      } else if (qty <= minLevel || inv.isLowStock) {
+        lowStockCount++;
+        criticalStockList.push({
+          _id: inv.product?._id || inv._id,
+          name: inv.product?.name || "Unknown Product",
+          category: inv.product?.category || "General",
+          quantity: qty,
+          minStockLevel: minLevel,
+        });
+      } else {
+        inStockCount++;
+      }
+    });
+  } else {
+    products.forEach((prod) => {
+      const qty = Number(prod.quantity || 0);
+      const sellPrice = Number(prod.sellingPrice || 0);
+      const buyPrice = Number(prod.buyingPrice || 0);
+      const minLevel = defaultLowThreshold;
+
+      totalQuantity += qty;
+      totalValue += sellPrice * qty;
+      totalCostValue += buyPrice * qty;
+
+      if (qty === 0) {
+        outOfStockCount++;
+        criticalStockList.push({
+          _id: prod._id,
+          name: prod.name,
+          category: prod.category || "General",
+          quantity: qty,
+          minStockLevel: minLevel,
+        });
+      } else if (qty <= minLevel) {
+        lowStockCount++;
+        criticalStockList.push({
+          _id: prod._id,
+          name: prod.name,
+          category: prod.category || "General",
+          quantity: qty,
+          minStockLevel: minLevel,
+        });
+      } else {
+        inStockCount++;
+      }
+    });
+  }
+
+  criticalStockList.sort((a, b) => a.quantity - b.quantity);
+
+  const totalCategories = new Set(products.map((p) => p.category).filter(Boolean)).size;
+
+  const topSellingList = [...productSalesMap.values()]
+    .sort((a, b) => b.unitsSold - a.unitsSold)
+    .slice(0, 10)
+    .map((item) => ({
+      ...item,
+      revenue: round(item.revenue),
+    }));
+
+  const topProduct = topSellingList[0] || { name: "N/A", unitsSold: 0 };
+
+  // --- Purchases Stats ---
+  let totalPurchasesAmount = 0;
+  let totalPurchasesDue = 0;
+  let monthlyPurchases = 0;
+  let monthlyPurchasesCount = 0;
+
+  purchases.forEach((purch) => {
+    const pDate = new Date(purch.purchaseDate || purch.createdAt || Date.now());
+    const gTotal = Number(purch.grandTotal ?? purch.totalAmount ?? 0);
+    const due = Number(purch.dueAmount || 0);
+
+    totalPurchasesAmount += gTotal;
+    totalPurchasesDue += due;
+
+    if (pDate >= monthStart && pDate < nextMonthStart) {
+      monthlyPurchases += gTotal;
+      monthlyPurchasesCount += 1;
+    }
+  });
+
+  // --- Sellers Stats ---
+  let totalSellerDue = 0;
+  let activeSellers = 0;
+
+  sellers.forEach((seller) => {
+    if (seller.status === "active") {
+      activeSellers += 1;
+    }
+    totalSellerDue += Number(seller.totalDue || 0);
+  });
+
+  const resolvedDueToSellers = Math.max(totalSellerDue, totalPurchasesDue);
+
+  return {
+    store: {
+      _id: store._id,
+      name: store.name,
+      businessType: store.businessType || "retail",
+    },
+    sales: {
+      todaySales: round(todaySales),
+      weeklySales: round(weeklySales),
+      monthlySales: round(monthlySales),
+      yearlySales: round(yearlySales),
+      totalSales: round(totalSales),
+      totalOrders,
+      todayOrders,
+      averageOrderValue,
+      salesGrowth,
+      ordersGrowth,
+      aovGrowth,
+      charts: {
+        dailyBreakdown,
+        dailyLabels,
+        weeklyBreakdown: roundedWeeklyBreakdown,
+        quarterlyBreakdown: roundedQuarterlyBreakdown,
+      },
+    },
+    inventory: {
+      totalQuantity,
+      totalValue: round(totalValue),
+      totalCostValue: round(totalCostValue),
+      lowStockCount,
+      outOfStockCount,
+      inStockCount,
+    },
+    products: {
+      totalProducts: products.length,
+      totalCategories,
+      topProduct: {
+        name: topProduct.name,
+        unitsSold: topProduct.unitsSold,
+      },
+      criticalStock: criticalStockList.slice(0, 15),
+      topSelling: topSellingList,
+    },
+    purchases: {
+      totalAmount: round(totalPurchasesAmount),
+      dueAmount: round(totalPurchasesDue),
+      totalPurchases: purchases.length,
+      monthlyPurchases: round(monthlyPurchases),
+      monthlyPurchasesCount,
+    },
+    sellers: {
+      totalSellers: sellers.length,
+      activeSellers,
+      totalDue: round(resolvedDueToSellers),
     },
   };
 };

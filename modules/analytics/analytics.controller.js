@@ -39,8 +39,8 @@ const parseDateRange = (query) => {
   const startDate = query.range
     ? new Date(endDate.getTime() - (rangeDays[query.range] - 1) * 24 * 60 * 60 * 1000)
     : query.startDate
-    ? new Date(query.startDate)
-    : new Date(endDate.getTime() - 29 * 24 * 60 * 60 * 1000);
+      ? new Date(query.startDate)
+      : new Date(endDate.getTime() - 29 * 24 * 60 * 60 * 1000);
 
   if (Number.isNaN(startDate.getTime())) {
     throw new ApiError("Invalid startDate. Use ISO format (YYYY-MM-DD).", 400);
@@ -256,6 +256,7 @@ export const getStoreComprehensiveOverviewController = async (req, res) => {
       req.params.storeId,
       req.user._id
     );
+
 
     res
       .status(200)
