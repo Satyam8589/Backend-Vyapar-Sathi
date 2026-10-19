@@ -64,6 +64,29 @@ export const formatUserResponse = (user) => {
         email: user.email,
         emailVerified: user.emailVerified,
         profilePicture: user.profilePicture,
-        createdAt: user.createdAt
+        phone: user.phone || null,
+        preferences: user.preferences || {},
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt
     };
+}
+
+export const updateUserProfile = async (firebaseUid, { name, phone, preferences, profilePicture }) => {
+    try {
+        const user = await User.findOne({ firebaseUid });
+        if (!user) {
+            throw new Error('User not found');
+        }
+
+        if (name !== undefined) user.name = name;
+        if (phone !== undefined) user.phone = phone;
+        if (preferences !== undefined) user.preferences = { ...(user.preferences || {}), ...preferences };
+        if (profilePicture !== undefined) user.profilePicture = profilePicture;
+        user.updatedAt = new Date();
+
+        await user.save();
+        return user;
+    } catch (error) {
+        throw error;
+    }
 }

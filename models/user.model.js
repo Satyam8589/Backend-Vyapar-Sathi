@@ -23,6 +23,14 @@ const userSchema = new mongoose.Schema({
         type: String, 
         default: null 
     },
+    phone: {
+        type: String,
+        default: null
+    },
+    preferences: {
+        type: mongoose.Schema.Types.Mixed,
+        default: {}
+    },
     createdAt: { 
         type: Date, 
         default: Date.now 
